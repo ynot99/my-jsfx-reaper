@@ -6,6 +6,7 @@ pi = 3.14159265;
 // JSFX викликає @init щоразу при старті відтворення, тому обмежуємо скидання
 init_done == 0 ? (
   selected_center_idx = 0; // Тоніка за замовчуванням: C (індекс 0)
+  selected_mode_idx = 0;   // Режим за замовчуванням: Ionian (0)
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -74,10 +75,69 @@ function draw_chord_ext(type) (
   type == 15 ? gfx_drawstr("11") : 0;
 );
 
-function is_in_scale(n, root) local(d) (
+function draw_mode_name(idx) (
+  idx == 0 ? gfx_drawstr("Ionian") :
+  idx == 1 ? gfx_drawstr("Dorian") :
+  idx == 2 ? gfx_drawstr("Phrygian") :
+  idx == 3 ? gfx_drawstr("Lydian") :
+  idx == 4 ? gfx_drawstr("Mixolydian") :
+  idx == 5 ? gfx_drawstr("Aeolian") :
+  idx == 6 ? gfx_drawstr("Locrian") : 0;
+);
+
+function is_in_scale(n, root, mode) local(d) (
   d = (n - root + 12) % 12;
-  // Мажорна гама: 0, 2, 4, 5, 7, 9, 11
-  (d==0 || d==2 || d==4 || d==5 || d==7 || d==9 || d==11) ? 1 : 0;
+  mode == 0 ? (d==0 || d==2 || d==4 || d==5 || d==7 || d==9 || d==11) : // Ionian
+  mode == 1 ? (d==0 || d==2 || d==3 || d==5 || d==7 || d==9 || d==10) : // Dorian
+  mode == 2 ? (d==0 || d==1 || d==3 || d==5 || d==7 || d==8 || d==10) : // Phrygian
+  mode == 3 ? (d==0 || d==2 || d==4 || d==6 || d==7 || d==9 || d==11) : // Lydian
+  mode == 4 ? (d==0 || d==2 || d==4 || d==5 || d==7 || d==9 || d==10) : // Mixolydian
+  mode == 5 ? (d==0 || d==2 || d==3 || d==5 || d==7 || d==8 || d==10) : // Aeolian
+  mode == 6 ? (d==0 || d==1 || d==3 || d==5 || d==6 || d==8 || d==10) : 0; // Locrian
+);
+
+function get_scale_degree(n, root, mode) local(d) (
+  d = (n - root + 12) % 12;
+  mode == 0 ? ( d==0?1: d==2?2: d==4?3: d==5?4: d==7?5: d==9?6: d==11?7: 0 ) :
+  mode == 1 ? ( d==0?1: d==2?2: d==3?3: d==5?4: d==7?5: d==9?6: d==10?7: 0 ) :
+  mode == 2 ? ( d==0?1: d==1?2: d==3?3: d==5?4: d==7?5: d==8?6: d==10?7: 0 ) :
+  mode == 3 ? ( d==0?1: d==2?2: d==4?3: d==6?4: d==7?5: d==9?6: d==11?7: 0 ) :
+  mode == 4 ? ( d==0?1: d==2?2: d==4?3: d==5?4: d==7?5: d==9?6: d==10?7: 0 ) :
+  mode == 5 ? ( d==0?1: d==2?2: d==3?3: d==5?4: d==7?5: d==8?6: d==10?7: 0 ) :
+  mode == 6 ? ( d==0?1: d==1?2: d==3?3: d==5?4: d==6?5: d==8?6: d==10?7: 0 ) : 0;
+);
+
+function draw_scale_degree(deg, tx, ty, is_black, is_played) local(dw, dh) (
+  deg > 0 ? (
+    gfx_setfont(1, "Arial", is_black ? 14 : 18);
+    is_black && !is_played ? (
+      gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1; // Світлий текст на чорних неактивних клавішах
+    ) : (
+      gfx_r=0.1; gfx_g=0.1; gfx_b=0.1; gfx_a=1; // Темний текст в інших випадках
+    );
+
+    // Якщо це Root нота (1), робимо текст товщим / більшим, якщо потрібно
+    deg == 1 && !is_black ? gfx_setfont(1, "Arial", 22, 'b') : 0;
+
+    deg == 1 ? gfx_measurestr("I", dw, dh) :
+    deg == 2 ? gfx_measurestr("II", dw, dh) :
+    deg == 3 ? gfx_measurestr("III", dw, dh) :
+    deg == 4 ? gfx_measurestr("IV", dw, dh) :
+    deg == 5 ? gfx_measurestr("V", dw, dh) :
+    deg == 6 ? gfx_measurestr("VI", dw, dh) :
+    deg == 7 ? gfx_measurestr("VII", dw, dh) : 0;
+
+    gfx_x = tx - dw/2;
+    gfx_y = ty - dh/2;
+
+    deg == 1 ? gfx_drawstr("I") :
+    deg == 2 ? gfx_drawstr("II") :
+    deg == 3 ? gfx_drawstr("III") :
+    deg == 4 ? gfx_drawstr("IV") :
+    deg == 5 ? gfx_drawstr("V") :
+    deg == 6 ? gfx_drawstr("VI") :
+    deg == 7 ? gfx_drawstr("VII") : 0;
+  );
 );
 
 function draw_hatching(rx, ry, rw, rh) local(c, st, x1, y1, x2, y2) (
@@ -96,6 +156,7 @@ function draw_hatching(rx, ry, rw, rh) local(c, st, x1, y1, x2, y2) (
 @serialize
 // Зберігаємо обрану тональність між стартами та при збереженні проєкту Reaper
 file_var(0, selected_center_idx);
+file_var(1, selected_mode_idx);
 
 @block
 // Читання MIDI-повідомлень
@@ -208,21 +269,43 @@ mouse_click = (mouse_cap & 1) && !(last_mouse_cap & 1);
 last_mouse_cap = mouse_cap;
 
 mouse_click ? (
-  c_idx = 0;
-  loop(12,
-    angle = c_idx * (2 * pi / 12) - (pi / 2);
-    t_x_maj = cx + cos(angle) * r_maj;
-    t_y_maj = cy + sin(angle) * r_maj;
-    t_x_min = cx + cos(angle) * r_min;
-    t_y_min = cy + sin(angle) * r_min;
+  // Перевіряємо кліки по меню "Modes" (у лівому верхньому куті)
+  mouse_x >= 10 && mouse_x <= 110 && mouse_y >= 10 && mouse_y <= 150 ? (
+    m_idx = floor((mouse_y - 10) / 20);
+    m_idx >= 0 && m_idx <= 6 ? selected_mode_idx = m_idx;
+  ) : (
+    // Інакше перевіряємо кліки по колу
+    c_idx = 0;
+    loop(12,
+      angle = c_idx * (2 * pi / 12) - (pi / 2);
+      t_x_maj = cx + cos(angle) * r_maj;
+      t_y_maj = cy + sin(angle) * r_maj;
+      t_x_min = cx + cos(angle) * r_min;
+      t_y_min = cy + sin(angle) * r_min;
 
-    // Перевіряємо колізію з колами навколо мажорного або мінорного тексту
-    (mouse_x - t_x_maj)*(mouse_x - t_x_maj) + (mouse_y - t_y_maj)*(mouse_y - t_y_maj) <= 25*25 ||
-    (mouse_x - t_x_min)*(mouse_x - t_x_min) + (mouse_y - t_y_min)*(mouse_y - t_y_min) <= 22*22 ? (
-      selected_center_idx = c_idx;
+      // Перевіряємо колізію з колами навколо мажорного або мінорного тексту
+      (mouse_x - t_x_maj)*(mouse_x - t_x_maj) + (mouse_y - t_y_maj)*(mouse_y - t_y_maj) <= 25*25 ||
+      (mouse_x - t_x_min)*(mouse_x - t_x_min) + (mouse_y - t_y_min)*(mouse_y - t_y_min) <= 22*22 ? (
+        selected_center_idx = c_idx;
+      );
+      c_idx += 1;
     );
-    c_idx += 1;
   );
+);
+
+// === MODES MENU (Top Left) ===
+gfx_setfont(1, "Arial", 16);
+m_idx = 0;
+loop(7,
+  m_y = 10 + m_idx * 20;
+  m_idx == selected_mode_idx ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = m_y;
+  draw_mode_name(m_idx);
+  m_idx += 1;
 );
 
 gfx_setfont(1, "Arial", 20);
@@ -233,7 +316,10 @@ loop(12,
   angle = i * (2 * pi / 12) - (pi / 2); // Починаємо з 12 годин
 
   // Чи входить поточна комірка у вибраний мишкою сектор 6-ти діатонічних акордів?
-  in_cluster = (i == selected_center_idx || i == (selected_center_idx + 1) % 12 || i == (selected_center_idx + 11) % 12);
+  // Тепер ми використовуємо підхід Relative Modes:
+  // Обраний сектор (тональність) залишається на місці, а змінюється лише тоніка для піаніно та ладів.
+  cluster_center = selected_center_idx;
+  in_cluster = (i == cluster_center || i == (cluster_center + 1) % 12 || i == (cluster_center + 11) % 12);
 
   // === МАЖОРНЕ КОЛО (Зовнішнє) ===
   x_maj = cx + cos(angle) * r_maj;
@@ -309,7 +395,15 @@ current_root >= 0 ? (
 );
 
 // === ПІАНІНО ===
-key_root = pM[selected_center_idx];
+// Обчислюємо тоніку відносно обраного сектора (Relative Modes підхід)
+mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
+            selected_mode_idx == 2 ? 4 :  // Phrygian (+4)
+            selected_mode_idx == 3 ? 5 :  // Lydian (+5)
+            selected_mode_idx == 4 ? 7 :  // Mixolydian (+7)
+            selected_mode_idx == 5 ? 9 :  // Aeolian (+9)
+            selected_mode_idx == 6 ? 11 : 0;// Locrian (+11)
+
+key_root = (pM[selected_center_idx] + mode_offs) % 12;
 kb_y = gfx_h - kb_h;
 w_keys = 14;      // Малюємо рівно 2 октави (14 білих клавіш)
 w_w = gfx_w / w_keys;
@@ -322,7 +416,7 @@ loop(w_keys,
   pc = (m==0)*0 + (m==1)*2 + (m==2)*4 + (m==3)*5 + (m==4)*7 + (m==5)*9 + (m==6)*11;
 
   is_played = notes_held[pc] > 0;
-  in_scl = is_in_scale(pc, key_root);
+  in_scl = is_in_scale(pc, key_root, selected_mode_idx);
 
   is_played ? (
     in_scl ? ( gfx_r=1; gfx_g=0.7; gfx_b=0; )          // Помаранчеві, якщо натиснута діатонічна
@@ -340,6 +434,11 @@ loop(w_keys,
     draw_hatching(wk_idx * w_w, kb_y, w_w - 1, kb_h);
   );
 
+  // Нумерація нот в тональності (1-7)
+  in_scl ? (
+    draw_scale_degree(get_scale_degree(pc, key_root, selected_mode_idx), wk_idx * w_w + w_w/2, kb_y + kb_h - 15, 0, is_played);
+  );
+
   wk_idx += 1;
 );
 
@@ -352,7 +451,7 @@ loop(w_keys - 1,
   m != 2 && m != 6 ? ( // Після E (2) та B (6) чорних нот немає
     pc = (m==0)*1 + (m==1)*3 + (m==3)*6 + (m==4)*8 + (m==5)*10;
     is_played = notes_held[pc] > 0;
-    in_scl = is_in_scale(pc, key_root);
+    in_scl = is_in_scale(pc, key_root, selected_mode_idx);
 
     is_played ? (
       in_scl ? ( gfx_r=1; gfx_g=0.7; gfx_b=0; )
@@ -365,6 +464,11 @@ loop(w_keys - 1,
     krx = bk_idx * w_w + w_w - bk_w/2;
     gfx_rect(krx, kb_y, bk_w, bk_h_actual);
 
+
+    // Нумерація нот в тональності (1-7)
+    in_scl ? (
+      draw_scale_degree(get_scale_degree(pc, key_root, selected_mode_idx), krx + bk_w/2, kb_y + bk_h_actual - 12, 1, is_played);
+    );
     // Додаємо штриховку для чорних клавіш (ще темнішу)
     !in_scl && !is_played ? (
       gfx_r=0.1; gfx_g=0.1; gfx_b=0.1; gfx_a=1;
