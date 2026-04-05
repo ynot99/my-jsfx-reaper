@@ -7,6 +7,7 @@ pi = 3.14159265;
 init_done == 0 ? (
   selected_center_idx = 0; // Тоніка за замовчуванням: C (індекс 0)
   selected_mode_idx = 0;   // Режим за замовчуванням: Ionian (0)
+  selected_voicing = 0;    // Тип акорду: 0=Diatonic, 1=Maj, 2=Min, 3=Dim, 4=Aug, 5=Sus2, 6=Sus4, 7=5
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -14,6 +15,9 @@ last_mouse_cap = 0;
 // Масиви для зберігання станів: чи натиснута нота (0-11, де 0 = C)
 notes_held = 300;
 i = 0; loop(12, notes_held[i] = 0; i += 1);
+
+active_n1 = -1; active_n2 = -1; active_n3 = -1;
+req_n1 = -1; req_n2 = -1; req_n3 = -1;
 
 current_root = -1; // Нота (0-11)
 current_type = -1; // 0 = Мажор, 1 = Мінор
@@ -107,6 +111,17 @@ function get_scale_degree(n, root, mode) local(d) (
   mode == 6 ? ( d==0?1: d==1?2: d==3?3: d==5?4: d==6?5: d==8?6: d==10?7: 0 ) : 0;
 );
 
+function get_mode_offset(m, d) (
+  d = d % 7;
+  m == 0 ? (d==0?0: d==1?2: d==2?4: d==3?5: d==4?7: d==5?9: d==6?11) :
+  m == 1 ? (d==0?0: d==1?2: d==2?3: d==3?5: d==4?7: d==5?9: d==6?10) :
+  m == 2 ? (d==0?0: d==1?1: d==2?3: d==3?5: d==4?7: d==5?8: d==6?10) :
+  m == 3 ? (d==0?0: d==1?2: d==2?4: d==3?6: d==4?7: d==5?9: d==6?11) :
+  m == 4 ? (d==0?0: d==1?2: d==2?4: d==3?5: d==4?7: d==5?9: d==6?10) :
+  m == 5 ? (d==0?0: d==1?2: d==2?3: d==3?5: d==4?7: d==5?8: d==6?10) :
+  m == 6 ? (d==0?0: d==1?1: d==2?3: d==3?5: d==4?6: d==5?8: d==6?10) : 0;
+);
+
 function draw_scale_degree(deg, tx, ty, is_black, is_played) local(dw, dh) (
   deg > 0 ? (
     gfx_setfont(1, "Arial", is_black ? 16 : 20, 'b'); // Збільшив загальний розмір і зробив жирним
@@ -192,6 +207,7 @@ function draw_hatching(rx, ry, rw, rh) local(c, st, x1, y1, x2, y2) (
 // Зберігаємо обрану тональність між стартами та при збереженні проєкту Reaper
 file_var(0, selected_center_idx);
 file_var(1, selected_mode_idx);
+file_var(2, selected_voicing);
 
 @block
 // Читання MIDI-повідомлень
@@ -203,15 +219,33 @@ while(midirecv(offset, msg1, msg2, msg3)) (
   // Note On
   status == 144 && vel > 0 ? (
     notes_held[note] += 1;
-  ) :
-  // Note Off
-  status == 128 || (status == 144 && vel == 0) ? (
-    notes_held[note] -= 1;
-    notes_held[note] < 0 ? notes_held[note] = 0;
-  );
+      ) :
+      // Note Off
+      status == 128 || (status == 144 && vel == 0) ? (
+        notes_held[note] -= 1;
+        notes_held[note] < 0 ? notes_held[note] = 0;
+      );
 
-  // Пропускаємо MIDI далі по ланцюжку треку
-  midisend(offset, msg1, msg2, msg3);
+      // Пропускаємо MIDI далі по ланцюжку треку
+      midisend(offset, msg1, msg2, msg3);
+    );
+
+// Відправка MIDI з UI
+req_changed = (req_n1 != active_n1) || (req_n2 != active_n2) || (req_n3 != active_n3);
+req_changed ? (
+  active_n1 != -1 ? (midisend(0, 128, active_n1, 0); notes_held[active_n1 % 12] -= 1; );
+  active_n2 != -1 ? (midisend(0, 128, active_n2, 0); notes_held[active_n2 % 12] -= 1; );
+  active_n3 != -1 ? (midisend(0, 128, active_n3, 0); notes_held[active_n3 % 12] -= 1; );
+
+  active_n1 = req_n1;
+  active_n2 = req_n2;
+  active_n3 = req_n3;
+
+  active_n1 != -1 ? (midisend(0, 144, active_n1, 100); notes_held[active_n1 % 12] += 1; );
+  active_n2 != -1 ? (midisend(0, 144, active_n2, 100); notes_held[active_n2 % 12] += 1; );
+  active_n3 != -1 ? (midisend(0, 144, active_n3, 100); notes_held[active_n3 % 12] += 1; );
+
+  idx_c=0; loop(12, notes_held[idx_c] < 0 ? notes_held[idx_c] = 0; idx_c+=1;);
 );
 
 // Аналіз акордів на основі активних нот
@@ -308,6 +342,11 @@ mouse_click ? (
   mouse_x >= 10 && mouse_x <= 110 && mouse_y >= 10 && mouse_y <= 150 ? (
     m_idx = floor((mouse_y - 10) / 20);
     m_idx >= 0 && m_idx <= 6 ? selected_mode_idx = m_idx;
+  ) :
+  // Перевіряємо кліки по меню "Chord Type" (зліва під Modes)
+  mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 180 && mouse_y <= 310 ? (
+    v_idx = floor((mouse_y - 180) / 16);
+    v_idx >= 0 && v_idx <= 7 ? selected_voicing = v_idx;
   ) : (
     // Інакше перевіряємо кліки по колу
     c_idx = 0;
@@ -328,6 +367,86 @@ mouse_click ? (
   );
 );
 
+// === DIATONIC CHORDS MENU (Top Right) ===
+panel_w = 90;
+panel_x = gfx_w - panel_w - 10;
+panel_y = 10;
+
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_x = panel_x - 10; gfx_y = panel_y;
+gfx_drawstr("Play Chords:");
+
+new_req_n1 = -1; new_req_n2 = -1; new_req_n3 = -1;
+
+d_idx = 0;
+loop(7,
+  btn_y = panel_y + 20 + d_idx * 30;
+  btn_h = 26;
+
+  n1 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx);
+
+  selected_voicing == 0 ? (
+    n2 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx+2) + (d_idx+2>=7 ? 12 : 0);
+    n3 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx+4) + (d_idx+4>=7 ? 12 : 0);
+    i3 = n2 - n1; i5 = n3 - n1;
+    type_str = i5 == 6 ? "dim" : (i3 == 3 ? "m" : "");
+    is_min = (i3 == 3);
+    is_dim = (i5 == 6);
+  ) : (
+    selected_voicing == 1 ? ( n2 = n1 + 4; n3 = n1 + 7; type_str = "maj"; is_min = 0; is_dim = 0; ) :
+    selected_voicing == 2 ? ( n2 = n1 + 3; n3 = n1 + 7; type_str = "m";   is_min = 1; is_dim = 0; ) :
+    selected_voicing == 3 ? ( n2 = n1 + 3; n3 = n1 + 6; type_str = "dim"; is_min = 1; is_dim = 1; ) :
+    selected_voicing == 4 ? ( n2 = n1 + 4; n3 = n1 + 8; type_str = "aug"; is_min = 0; is_dim = 0; ) :
+    selected_voicing == 5 ? ( n2 = n1 + 2; n3 = n1 + 7; type_str = "sus2";is_min = 0; is_dim = 0; ) :
+    selected_voicing == 6 ? ( n2 = n1 + 5; n3 = n1 + 7; type_str = "sus4";is_min = 0; is_dim = 0; ) :
+    ( n2 = n1 + 7; n3 = -1; type_str = "5"; is_min = 0; is_dim = 0; ); // Power chord (no 3rd)
+  );
+
+  is_hover = mouse_x >= panel_x && mouse_x <= panel_x + panel_w && mouse_y >= btn_y && mouse_y <= btn_y + btn_h;
+  is_down = is_hover && (mouse_cap & 1);
+
+  is_down ? (
+    new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3;
+    gfx_r=0.2; gfx_g=0.6; gfx_b=1.0; gfx_a=0.9;
+  ) : is_hover ? (
+    gfx_r=0.3; gfx_g=0.3; gfx_b=0.35; gfx_a=0.8;
+  ) : (
+    gfx_r=0.15; gfx_g=0.15; gfx_b=0.18; gfx_a=0.7;
+  );
+
+  gfx_rect(panel_x, btn_y, panel_w, btn_h);
+
+  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+  gfx_setfont(1, "Arial", 16, 'b');
+
+  gfx_x = panel_x + 5;
+  gfx_y = btn_y + 5;
+
+  deg_n = d_idx + 1;
+  is_min ? (
+    deg_n == 1 ? gfx_drawstr("i") : deg_n == 2 ? gfx_drawstr("ii") :
+    deg_n == 3 ? gfx_drawstr("iii") : deg_n == 4 ? gfx_drawstr("iv") :
+    deg_n == 5 ? gfx_drawstr("v") : deg_n == 6 ? gfx_drawstr("vi") : gfx_drawstr("vii");
+  ) : (
+    deg_n == 1 ? gfx_drawstr("I") : deg_n == 2 ? gfx_drawstr("II") :
+    deg_n == 3 ? gfx_drawstr("III") : deg_n == 4 ? gfx_drawstr("IV") :
+    deg_n == 5 ? gfx_drawstr("V") : deg_n == 6 ? gfx_drawstr("VI") : gfx_drawstr("VII");
+  );
+  is_dim ? gfx_drawstr("\xB0") :
+  selected_voicing == 4 ? gfx_drawstr("+") : 0;
+
+  gfx_drawstr("  ");
+  draw_root_name(n1 % 12);
+  gfx_drawstr(type_str);
+
+  d_idx += 1;
+);
+req_n1 = new_req_n1; req_n2 = new_req_n2; req_n3 = new_req_n3;
+
+gfx_setfont(1, "Arial", 32, 'b');
+
+//
 // === MODES MENU (Top Left) ===
 gfx_setfont(1, "Arial", 16);
 m_idx = 0;
@@ -341,6 +460,33 @@ loop(7,
   gfx_x = 10; gfx_y = m_y;
   draw_mode_name(m_idx);
   m_idx += 1;
+);
+
+// === CHORD VOICING MENU (Left, below modes) ===
+v_y_start = 160;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = v_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Chord Type:");
+
+gfx_setfont(1, "Arial", 14);
+v_idx = 0;
+loop(8,
+  v_y = v_y_start + 20 + v_idx * 16;
+  v_idx == selected_voicing ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = v_y;
+  v_idx == 0 ? gfx_drawstr("Diatonic") :
+  v_idx == 1 ? gfx_drawstr("Major (maj)") :
+  v_idx == 2 ? gfx_drawstr("Minor (m)") :
+  v_idx == 3 ? gfx_drawstr("Diminished") :
+  v_idx == 4 ? gfx_drawstr("Aug (aug)") :
+  v_idx == 5 ? gfx_drawstr("Sus2") :
+  v_idx == 6 ? gfx_drawstr("Sus4") : gfx_drawstr("Power (5)");
+  v_idx += 1;
 );
 
 gfx_setfont(1, "Arial", 32, 'b'); // Збільшили текст для акордів на колі та зробили жирним
