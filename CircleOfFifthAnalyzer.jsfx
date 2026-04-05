@@ -3,6 +3,13 @@ desc: MIDI Circle of Fifths Analyzer
 @init
 pi = 3.14159265;
 
+// JSFX викликає @init щоразу при старті відтворення, тому обмежуємо скидання
+init_done == 0 ? (
+  selected_center_idx = 0; // Тоніка за замовчуванням: C (індекс 0)
+  init_done = 1;
+);
+last_mouse_cap = 0;
+
 // Масиви для зберігання станів: чи натиснута нота (0-11, де 0 = C)
 notes_held = 300;
 i = 0; loop(12, notes_held[i] = 0; i += 1);
@@ -66,6 +73,10 @@ function draw_chord_ext(type) (
   type == 14 ? gfx_drawstr("m11") :
   type == 15 ? gfx_drawstr("11") : 0;
 );
+
+@serialize
+// Зберігаємо обрану тональність між стартами та при збереженні проєкту Reaper
+file_var(0, selected_center_idx);
 
 @block
 // Читання MIDI-повідомлень
@@ -172,29 +183,37 @@ cy = gfx_h / 2;
 r_maj = min(cx, cy) * 0.75; // Радіус зовнішнього кола (Мажор)
 r_min = min(cx, cy) * 0.45; // Радіус внутрішнього кола (Мінор)
 
-gfx_setfont(1, "Arial", 20);
+// Обробка кліків миші
+mouse_click = (mouse_cap & 1) && !(last_mouse_cap & 1);
+last_mouse_cap = mouse_cap;
 
-// Знайдемо індекс поточного акорду для підсвічування "тональності" (сектора з 6 акордів)
-active_center_idx = -1;
-current_root >= 0 ? (
+mouse_click ? (
   c_idx = 0;
   loop(12,
-    current_btype == 0 && current_root == pM[c_idx] ? active_center_idx = c_idx;
-    current_btype == 1 && current_root == pMin[c_idx] ? active_center_idx = c_idx;
+    angle = c_idx * (2 * pi / 12) - (pi / 2);
+    t_x_maj = cx + cos(angle) * r_maj;
+    t_y_maj = cy + sin(angle) * r_maj;
+    t_x_min = cx + cos(angle) * r_min;
+    t_y_min = cy + sin(angle) * r_min;
+
+    // Перевіряємо колізію з колами навколо мажорного або мінорного тексту
+    (mouse_x - t_x_maj)*(mouse_x - t_x_maj) + (mouse_y - t_y_maj)*(mouse_y - t_y_maj) <= 25*25 ||
+    (mouse_x - t_x_min)*(mouse_x - t_x_min) + (mouse_y - t_y_min)*(mouse_y - t_y_min) <= 22*22 ? (
+      selected_center_idx = c_idx;
+    );
     c_idx += 1;
   );
 );
+
+gfx_setfont(1, "Arial", 20);
 
 // Відмальовка 12 позицій кола
 i = 0;
 loop(12,
   angle = i * (2 * pi / 12) - (pi / 2); // Починаємо з 12 годин
 
-  // Чи входить поточна комірка у сектор 6-ти діатонічних акордів (поточний, зліва та справа)?
-  in_cluster = 0;
-  active_center_idx >= 0 ? (
-    i == active_center_idx || i == (active_center_idx + 1) % 12 || i == (active_center_idx + 11) % 12 ? in_cluster = 1;
-  );
+  // Чи входить поточна комірка у вибраний мишкою сектор 6-ти діатонічних акордів?
+  in_cluster = (i == selected_center_idx || i == (selected_center_idx + 1) % 12 || i == (selected_center_idx + 11) % 12);
 
   // === МАЖОРНЕ КОЛО (Зовнішнє) ===
   x_maj = cx + cos(angle) * r_maj;
