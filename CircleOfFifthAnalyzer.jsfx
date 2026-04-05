@@ -58,7 +58,13 @@ function draw_chord_ext(type) (
   type == 6 ? gfx_drawstr("5") :
   type == 7 ? gfx_drawstr("maj7") :
   type == 8 ? gfx_drawstr("m7") :
-  type == 9 ? gfx_drawstr("7") : 0;
+  type == 9 ? gfx_drawstr("7") :
+  type == 10 ? gfx_drawstr("maj9") :
+  type == 11 ? gfx_drawstr("m9") :
+  type == 12 ? gfx_drawstr("9") :
+  type == 13 ? gfx_drawstr("maj11") :
+  type == 14 ? gfx_drawstr("m11") :
+  type == 15 ? gfx_drawstr("11") : 0;
 );
 
 @block
@@ -90,50 +96,66 @@ current_btype = -1;
 match_score = 0;
 r = 0;
 loop(12,
-  // 5 (Power chord: 1, 5)
-  notes_held[r] > 0 && notes_held[(r+7)%12] > 0 && notes_held[(r+4)%12] == 0 && notes_held[(r+3)%12] == 0 ? (
-    match_score < 2 ? ( match_score = 2; current_root = r; current_type = 6; current_btype = 0; );
-  );
+  h1  = notes_held[r] > 0;
+  h2  = notes_held[(r+2)%12] > 0;
+  h3b = notes_held[(r+3)%12] > 0;
+  h3  = notes_held[(r+4)%12] > 0;
+  h4  = notes_held[(r+5)%12] > 0;
+  h5b = notes_held[(r+6)%12] > 0;
+  h5  = notes_held[(r+7)%12] > 0;
+  h5s = notes_held[(r+8)%12] > 0;
+  h7b = notes_held[(r+10)%12] > 0;
+  h7  = notes_held[(r+11)%12] > 0;
 
-  // Sus2 (1, 2, 5)
-  notes_held[r] > 0 && notes_held[(r+2)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
-    match_score < 3 ? ( match_score = 3; current_root = r; current_type = 4; current_btype = 0; );
-  );
-
-  // Sus4 (1, 4, 5)
-  notes_held[r] > 0 && notes_held[(r+5)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
-    match_score < 3 ? ( match_score = 3; current_root = r; current_type = 5; current_btype = 0; );
-  );
-
-  // Dim (1, b3, b5)
-  notes_held[r] > 0 && notes_held[(r+3)%12] > 0 && notes_held[(r+6)%12] > 0 ? (
-    match_score < 4 ? ( match_score = 4; current_root = r; current_type = 2; current_btype = 1; );
-  );
-
-  // Aug (1, 3, #5)
-  notes_held[r] > 0 && notes_held[(r+4)%12] > 0 && notes_held[(r+8)%12] > 0 ? (
-    match_score < 4 ? ( match_score = 4; current_root = r; current_type = 3; current_btype = 0; );
-  );
-
-  // Min (1, b3, 5)
-  notes_held[r] > 0 && notes_held[(r+3)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
-    match_score < 5 ? ( match_score = 5; current_root = r; current_type = 1; current_btype = 1; );
-    // Min7 (1, b3, 5, b7)
-    notes_held[(r+10)%12] > 0 ? (
-      match_score < 6 ? ( match_score = 6; current_root = r; current_type = 8; current_btype = 1; );
+  h1 ? (
+    // 5 (Power chord: 1, 5)
+    h5 && !h3 && !h3b ? (
+      match_score < 2 ? ( match_score = 2; current_root = r; current_type = 6; current_btype = 0; );
     );
-  );
 
-  // Maj (1, 3, 5)
-  notes_held[r] > 0 && notes_held[(r+4)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
-    match_score < 5 ? ( match_score = 5; current_root = r; current_type = 0; current_btype = 0; );
-    // Maj7 (1, 3, 5, 7)
-    notes_held[(r+11)%12] > 0 ? (
-      match_score < 6 ? ( match_score = 6; current_root = r; current_type = 7; current_btype = 0; );
+    // Sus2 (1, 2, 5)
+    h2 && h5 ? (
+      match_score < 3 ? ( match_score = 3; current_root = r; current_type = 4; current_btype = 0; );
     );
-    // Dom7 (1, 3, 5, b7)
-    notes_held[(r+10)%12] > 0 ? (
-      match_score < 6 ? ( match_score = 6; current_root = r; current_type = 9; current_btype = 0; );
+
+    // Sus4 (1, 4, 5)
+    h4 && h5 ? (
+      match_score < 3 ? ( match_score = 3; current_root = r; current_type = 5; current_btype = 0; );
+    );
+
+    // Dim (1, b3, b5)
+    h3b && h5b ? (
+      match_score < 4 ? ( match_score = 4; current_root = r; current_type = 2; current_btype = 1; );
+    );
+
+    // Aug (1, 3, #5)
+    h3 && h5s ? (
+      match_score < 4 ? ( match_score = 4; current_root = r; current_type = 3; current_btype = 0; );
+    );
+
+    // Min (allows omitting 5th if 7th is present)
+    h3b && (h5 || h7b || h7) ? (
+      match_score < 5 ? ( match_score = 5; current_root = r; current_type = 1; current_btype = 1; );
+      h7b ? (
+        h4 ? ( match_score < 8 ? ( match_score = 8; current_root = r; current_type = 14; current_btype = 1; ) : 0; ) :
+        h2 ? ( match_score < 7 ? ( match_score = 7; current_root = r; current_type = 11; current_btype = 1; ) : 0; ) :
+        ( match_score < 6 ? ( match_score = 6; current_root = r; current_type = 8; current_btype = 1; ) : 0; );
+      ) : 0;
+    );
+
+    // Maj / Dom (allows omitting 5th if 7th is present)
+    h3 && (h5 || h7b || h7) ? (
+      match_score < 5 ? ( match_score = 5; current_root = r; current_type = 0; current_btype = 0; );
+      h7 ? (
+        h4 ? ( match_score < 8 ? ( match_score = 8; current_root = r; current_type = 13; current_btype = 0; ) : 0; ) :
+        h2 ? ( match_score < 7 ? ( match_score = 7; current_root = r; current_type = 10; current_btype = 0; ) : 0; ) :
+        ( match_score < 6 ? ( match_score = 6; current_root = r; current_type = 7; current_btype = 0; ) : 0; );
+      ) : 0;
+      h7b ? (
+        h4 ? ( match_score < 8 ? ( match_score = 8; current_root = r; current_type = 15; current_btype = 0; ) : 0; ) :
+        h2 ? ( match_score < 7 ? ( match_score = 7; current_root = r; current_type = 12; current_btype = 0; ) : 0; ) :
+        ( match_score < 6 ? ( match_score = 6; current_root = r; current_type = 9; current_btype = 0; ) : 0; );
+      ) : 0;
     );
   );
 
