@@ -1,0 +1,149 @@
+desc: MIDI Circle of Fifths Analyzer
+
+@init
+pi = 3.14159265;
+
+// Масиви для зберігання станів: чи натиснута нота (0-11, де 0 = C)
+notes_held = 300;
+i = 0; loop(12, notes_held[i] = 0; i += 1);
+
+current_root = -1;
+current_type = -1; // 0 = Мажор, 1 = Мінор
+
+// Мапінг позицій на колі (від 0 до 11, за годинниковою стрілкою) на pitch-класи
+// Мажорні корені: C, G, D, A, E, B, F#, Db, Ab, Eb, Bb, F
+pM = 100;
+pM[0]=0; pM[1]=7; pM[2]=2; pM[3]=9; pM[4]=4; pM[5]=11;
+pM[6]=6; pM[7]=1; pM[8]=8; pM[9]=3; pM[10]=10; pM[11]=5;
+
+// Мінорні корені (паралельні): Am, Em, Bm, F#m, C#m, G#m, D#m, Bbm, Fm, Cm, Gm, Dm
+pMin = 200;
+pMin[0]=9; pMin[1]=4; pMin[2]=11; pMin[3]=6; pMin[4]=1; pMin[5]=8;
+pMin[6]=3; pMin[7]=10; pMin[8]=5; pMin[9]=0; pMin[10]=7; pMin[11]=2;
+
+// Функції для відмальовки тексту
+function draw_maj_name(idx) (
+  idx == 0 ? gfx_drawstr("C") : idx == 1 ? gfx_drawstr("G") :
+  idx == 2 ? gfx_drawstr("D") : idx == 3 ? gfx_drawstr("A") :
+  idx == 4 ? gfx_drawstr("E") : idx == 5 ? gfx_drawstr("B") :
+  idx == 6 ? gfx_drawstr("F#") : idx == 7 ? gfx_drawstr("Db") :
+  idx == 8 ? gfx_drawstr("Ab") : idx == 9 ? gfx_drawstr("Eb") :
+  idx == 10 ? gfx_drawstr("Bb") : idx == 11 ? gfx_drawstr("F") : 0;
+);
+
+function draw_min_name(idx) (
+  idx == 0 ? gfx_drawstr("Am") : idx == 1 ? gfx_drawstr("Em") :
+  idx == 2 ? gfx_drawstr("Bm") : idx == 3 ? gfx_drawstr("F#m") :
+  idx == 4 ? gfx_drawstr("C#m") : idx == 5 ? gfx_drawstr("G#m") :
+  idx == 6 ? gfx_drawstr("D#m") : idx == 7 ? gfx_drawstr("Bbm") :
+  idx == 8 ? gfx_drawstr("Fm") : idx == 9 ? gfx_drawstr("Cm") :
+  idx == 10 ? gfx_drawstr("Gm") : idx == 11 ? gfx_drawstr("Dm") : 0;
+);
+
+@block
+// Читання MIDI-повідомлень
+while(midirecv(offset, msg1, msg2, msg3)) (
+  status = msg1 & 240;
+  note = msg2 % 12; // Зводимо до 12 півтонів (pitch class)
+  vel = msg3;
+
+  // Note On
+  status == 144 && vel > 0 ? (
+    notes_held[note] += 1;
+  ) :
+  // Note Off
+  status == 128 || (status == 144 && vel == 0) ? (
+    notes_held[note] -= 1;
+    notes_held[note] < 0 ? notes_held[note] = 0;
+  );
+
+  // Пропускаємо MIDI далі по ланцюжку треку
+  midisend(offset, msg1, msg2, msg3);
+);
+
+// Аналіз акордів на основі активних нот (базові тризвуки)
+current_root = -1;
+current_type = -1;
+
+r = 0;
+loop(12,
+  // Перевірка мажорного тризвуку: Корінь, Велика терція (+4), Чиста квінта (+7)
+  notes_held[r] > 0 && notes_held[(r+4)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
+    current_root = r; current_type = 0;
+  );
+  // Перевірка мінорного тризвуку: Корінь, Мала терція (+3), Чиста квінта (+7)
+  notes_held[r] > 0 && notes_held[(r+3)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
+    current_root = r; current_type = 1;
+  );
+  r += 1;
+);
+
+@gfx 400 400
+// Фон
+gfx_r=0.1; gfx_g=0.1; gfx_b=0.12; gfx_a=1;
+gfx_rect(0,0,gfx_w,gfx_h);
+
+cx = gfx_w / 2;
+cy = gfx_h / 2;
+r_maj = min(cx, cy) * 0.75; // Радіус зовнішнього кола (Мажор)
+r_min = min(cx, cy) * 0.45; // Радіус внутрішнього кола (Мінор)
+
+gfx_setfont(1, "Arial", 20);
+
+// Відмальовка 12 позицій кола
+i = 0;
+loop(12,
+  angle = i * (2 * pi / 12) - (pi / 2); // Починаємо з 12 годин
+
+  // === МАЖОРНЕ КОЛО (Зовнішнє) ===
+  x_maj = cx + cos(angle) * r_maj;
+  y_maj = cy + sin(angle) * r_maj;
+
+  // Якщо поточний мажорний акорд відповідає цій комірці - підсвічуємо
+  current_type == 0 && current_root == pM[i] ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=0.9;
+    gfx_circle(x_maj, y_maj, 25, 1, 1); // Залитий круг
+    gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст
+  ) : (
+    gfx_r=0.8; gfx_g=0.8; gfx_b=0.8; gfx_a=1; // Звичайний біло-сірий текст
+  );
+
+  // Центруємо і малюємо мажорний текст
+  idx = i; // Зберігаємо індекс для функцій, оскільки JSFX не підтримує передачу замикань
+  gfx_x = x_maj; gfx_y = y_maj;
+  idx == 0 ? gfx_measurestr("C", w, h) : idx == 1 ? gfx_measurestr("G", w, h) :
+  idx == 2 ? gfx_measurestr("D", w, h) : idx == 3 ? gfx_measurestr("A", w, h) :
+  idx == 4 ? gfx_measurestr("E", w, h) : idx == 5 ? gfx_measurestr("B", w, h) :
+  idx == 6 ? gfx_measurestr("F#", w, h): idx == 7 ? gfx_measurestr("Db", w, h) :
+  idx == 8 ? gfx_measurestr("Ab", w, h): idx == 9 ? gfx_measurestr("Eb", w, h) :
+  idx == 10? gfx_measurestr("Bb", w, h): gfx_measurestr("F", w, h);
+
+  gfx_x = x_maj - w/2; gfx_y = y_maj - h/2;
+  draw_maj_name(i);
+
+  // === МІНОРНЕ КОЛО (Внутрішнє) ===
+  x_min = cx + cos(angle) * r_min;
+  y_min = cy + sin(angle) * r_min;
+
+  current_type == 1 && current_root == pMin[i] ? (
+    gfx_r=0; gfx_g=0.8; gfx_b=1; gfx_a=0.9;
+    gfx_circle(x_min, y_min, 22, 1, 1);
+    gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+  );
+
+  // Центруємо і малюємо мінорний текст
+  gfx_x = x_min; gfx_y = y_min;
+  idx == 0 ? gfx_measurestr("Am", w, h) : idx == 1 ? gfx_measurestr("Em", w, h) :
+  idx == 2 ? gfx_measurestr("Bm", w, h) : idx == 3 ? gfx_measurestr("F#m", w, h) :
+  idx == 4 ? gfx_measurestr("C#m", w, h): idx == 5 ? gfx_measurestr("G#m", w, h) :
+  idx == 6 ? gfx_measurestr("D#m", w, h): idx == 7 ? gfx_measurestr("Bbm", w, h) :
+  idx == 8 ? gfx_measurestr("Fm", w, h) : idx == 9 ? gfx_measurestr("Cm", w, h) :
+  idx == 10? gfx_measurestr("Gm", w, h) : gfx_measurestr("Dm", w, h);
+
+  gfx_x = x_min - w/2; gfx_y = y_min - h/2;
+  draw_min_name(i);
+
+  i += 1;
+);
