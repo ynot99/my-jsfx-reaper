@@ -671,11 +671,20 @@ loop(12,
   is_lclick_maj = (mouse_cap & 1) && is_hover_maj; // Тепер лівий клік для гри
 
   is_lclick_maj ? (
-    new_req_n1 = 60 + (play_octave_offset * 12) + pM[i];
-    new_req_n2 = new_req_n1 + 4;
-    new_req_n3 = new_req_n1 + 7;
-    new_req_n4 = selected_extension >= 1 ? new_req_n1 + 11 : -1;
-    new_req_n5 = selected_extension == 2 ? new_req_n1 + 14 : -1;
+    c_note = pM[i];
+    c_note < key_root ? c_note += 12; // Зміщуємо в октаву відносно центру
+    new_req_n1 = 60 + (play_octave_offset * 12) + c_note;
+    v_c = selected_voicing == 0 ? 1 : selected_voicing;
+
+    v_c == 1 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 11 : -1; ) :
+    v_c == 2 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 3 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 6; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 9 : -1; ) :
+    v_c == 4 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 8; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 5 ? ( new_req_n2 = new_req_n1 + 2; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 6 ? ( new_req_n2 = new_req_n1 + 5; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    ( new_req_n2 = new_req_n1 + 7; new_req_n3 = -1; new_req_n4 = -1; );
+
+    new_req_n5 = selected_extension == 2 && v_c != 7 ? new_req_n1 + 14 : -1;
   );
 
   is_maj_played = (current_btype == 0 && current_root == pM[i]) || is_lclick_maj;
@@ -717,11 +726,20 @@ loop(12,
   is_lclick_min = (mouse_cap & 1) && is_hover_min; // Тепер лівий клік для гри
 
   is_lclick_min ? (
-    new_req_n1 = 60 + (play_octave_offset * 12) + pMin[i];
-    new_req_n2 = new_req_n1 + 3;
-    new_req_n3 = new_req_n1 + 7;
-    new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1;
-    new_req_n5 = selected_extension == 2 ? new_req_n1 + 14 : -1;
+    c_note_m = pMin[i];
+    c_note_m < key_root ? c_note_m += 12; // Зміщуємо в октаву відносно центру
+    new_req_n1 = 60 + (play_octave_offset * 12) + c_note_m;
+    v_c = selected_voicing == 0 ? 2 : selected_voicing;
+
+    v_c == 1 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 11 : -1; ) :
+    v_c == 2 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 3 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 6; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 9 : -1; ) :
+    v_c == 4 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 8; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 5 ? ( new_req_n2 = new_req_n1 + 2; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 6 ? ( new_req_n2 = new_req_n1 + 5; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    ( new_req_n2 = new_req_n1 + 7; new_req_n3 = -1; new_req_n4 = -1; );
+
+    new_req_n5 = selected_extension == 2 && v_c != 7 ? new_req_n1 + 14 : -1;
   );
 
   is_min_played = (current_btype == 1 && current_root == pMin[i]) || is_lclick_min;
