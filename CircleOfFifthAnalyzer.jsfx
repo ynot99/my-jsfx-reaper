@@ -1,5 +1,12 @@
 desc: MIDI Circle of Fifths Analyzer
 
+slider1:0<0,11,1>-Root (Center)
+slider2:0<0,6,1>-Scale Mode
+slider3:0<0,7,1>-Chord Type
+slider4:0<0,2,1>-Extensions
+slider5:0<0,3,1>-Strum Effect
+slider6:0<-3,3,1>-Octave Offset
+
 @init
 pi = 3.14159265;
 
@@ -207,14 +214,13 @@ function draw_hatching(rx, ry, rw, rh) local(c, st, x1, y1, x2, y2) (
   );
 );
 
-@serialize
-// Зберігаємо обрану тональність між стартами та при збереженні проєкту Reaper
-file_var(0, selected_center_idx);
-file_var(1, selected_mode_idx);
-file_var(2, selected_voicing);
-file_var(3, selected_extension);
-file_var(4, selected_strum);
-file_var(5, play_octave_offset);
+@slider
+selected_center_idx = slider1;
+selected_mode_idx = slider2;
+selected_voicing = slider3;
+selected_extension = slider4;
+selected_strum = slider5;
+play_octave_offset = slider6;
 
 @block
 // Читання MIDI-повідомлень
@@ -390,22 +396,22 @@ mouse_click ? (
   // Перевіряємо кліки по меню "Modes" (у лівому верхньому куті)
   mouse_x >= 10 && mouse_x <= 110 && mouse_y >= 10 && mouse_y <= 150 ? (
     m_idx = floor((mouse_y - 10) / 20);
-    m_idx >= 0 && m_idx <= 6 ? selected_mode_idx = m_idx;
+    m_idx >= 0 && m_idx <= 6 ? ( selected_mode_idx = m_idx; slider2 = m_idx; slider_automate(slider2); );
   ) :
   // Перевіряємо кліки по меню "Chord Type" (зліва під Modes)
   mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 180 && mouse_y <= 310 ? (
     v_idx = floor((mouse_y - 180) / 16);
-    v_idx >= 0 && v_idx <= 7 ? selected_voicing = v_idx;
+    v_idx >= 0 && v_idx <= 7 ? ( selected_voicing = v_idx; slider3 = v_idx; slider_automate(slider3); );
   ) :
   // Перевіряємо кліки по меню "Extensions" (зліва під Chord Type)
   mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 330 && mouse_y <= 380 ? (
     e_idx = floor((mouse_y - 330) / 16);
-    e_idx >= 0 && e_idx <= 2 ? selected_extension = e_idx;
+    e_idx >= 0 && e_idx <= 2 ? ( selected_extension = e_idx; slider4 = e_idx; slider_automate(slider4); );
   ) :
   // Перевіряємо кліки по меню "Strum" (зліва під Extensions)
   mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 410 && mouse_y <= 480 ? (
     s_idx = floor((mouse_y - 410) / 16);
-    s_idx >= 0 && s_idx <= 3 ? selected_strum = s_idx;
+    s_idx >= 0 && s_idx <= 3 ? ( selected_strum = s_idx; slider5 = s_idx; slider_automate(slider5); );
   ) : (
     // Інакше перевіряємо кліки по колу
     c_idx = 0;
@@ -420,6 +426,7 @@ mouse_click ? (
       pow(mouse_x - t_x_maj, 2) + pow(mouse_y - t_y_maj, 2) <= pow(38, 2) ||
       pow(mouse_x - t_x_min, 2) + pow(mouse_y - t_y_min, 2) <= pow(35, 2) ? (
         selected_center_idx = c_idx;
+        slider1 = c_idx; slider_automate(slider1);
       );
 
       c_idx += 1;
@@ -449,6 +456,7 @@ btn_lx = gfx_x;
 gfx_drawstr("<  ");
 mouse_click && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_lx && mouse_x <= btn_lx + 20 ? (
   play_octave_offset = max(-3, play_octave_offset - 1);
+  slider6 = play_octave_offset; slider_automate(slider6);
 );
 
 // Текст числа
@@ -461,6 +469,7 @@ btn_rx = gfx_x;
 gfx_drawstr(">");
 mouse_click && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_rx && mouse_x <= btn_rx + 20 ? (
   play_octave_offset = min(3, play_octave_offset + 1);
+  slider6 = play_octave_offset; slider_automate(slider6);
 );
 
 new_req_n1 = -1; new_req_n2 = -1; new_req_n3 = -1; new_req_n4 = -1; new_req_n5 = -1;
