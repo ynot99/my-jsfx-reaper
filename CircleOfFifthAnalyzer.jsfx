@@ -109,15 +109,21 @@ function get_scale_degree(n, root, mode) local(d) (
 
 function draw_scale_degree(deg, tx, ty, is_black, is_played) local(dw, dh) (
   deg > 0 ? (
-    gfx_setfont(1, "Arial", is_black ? 14 : 18);
+    gfx_setfont(1, "Arial", is_black ? 16 : 20, 'b'); // Збільшив загальний розмір і зробив жирним
     is_black && !is_played ? (
       gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1; // Світлий текст на чорних неактивних клавішах
     ) : (
       gfx_r=0.1; gfx_g=0.1; gfx_b=0.1; gfx_a=1; // Темний текст в інших випадках
     );
 
-    // Якщо це Root нота (1), робимо текст товщим / більшим, якщо потрібно
-    deg == 1 && !is_black ? gfx_setfont(1, "Arial", 22, 'b') : 0;
+    // Робимо Root ноту (1) значно більшою та виділяємо кольором
+    deg == 1 ? (
+      gfx_setfont(1, "Arial", is_black ? 24 : 32, 'b');
+      !is_played ? (
+        // Жовтуватий для чорних клавіш і синій для білих, щоб тоніка світилась навіть коли не натиснута
+        is_black ? (gfx_r=1.0; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.0; gfx_g=0.4; gfx_b=0.9;)
+      );
+    );
 
     deg == 1 ? gfx_measurestr("I", dw, dh) :
     deg == 2 ? gfx_measurestr("II", dw, dh) :
@@ -137,6 +143,35 @@ function draw_scale_degree(deg, tx, ty, is_black, is_played) local(dw, dh) (
     deg == 5 ? gfx_drawstr("V") :
     deg == 6 ? gfx_drawstr("VI") :
     deg == 7 ? gfx_drawstr("VII") : 0;
+  );
+);
+
+function draw_circle_roman(deg, ctx, cty, is_minor, is_played) local(dw, dh) (
+  deg > 0 ? (
+    gfx_setfont(1, "Arial", 20, 'b'); // Збільшений розмір і жирний
+    is_played ? (
+      gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст для активного акорду
+    ) : (
+      gfx_r=0.8; gfx_g=0.8; gfx_b=0.85; gfx_a=1; // Світлий текст
+    );
+    is_minor ? (
+      deg == 1 ? gfx_measurestr("i", dw, dh) : deg == 2 ? gfx_measurestr("ii", dw, dh) :
+      deg == 3 ? gfx_measurestr("iii", dw, dh) : deg == 4 ? gfx_measurestr("iv", dw, dh) :
+      deg == 5 ? gfx_measurestr("v", dw, dh) : deg == 6 ? gfx_measurestr("vi", dw, dh) : gfx_measurestr("vii", dw, dh);
+      gfx_x = ctx - dw/2; gfx_y = cty;
+      deg == 1 ? gfx_drawstr("i") : deg == 2 ? gfx_drawstr("ii") :
+      deg == 3 ? gfx_drawstr("iii") : deg == 4 ? gfx_drawstr("iv") :
+      deg == 5 ? gfx_drawstr("v") : deg == 6 ? gfx_drawstr("vi") : gfx_drawstr("vii");
+    ) : (
+      deg == 1 ? gfx_measurestr("I", dw, dh) : deg == 2 ? gfx_measurestr("II", dw, dh) :
+      deg == 3 ? gfx_measurestr("III", dw, dh) : deg == 4 ? gfx_measurestr("IV", dw, dh) :
+      deg == 5 ? gfx_measurestr("V", dw, dh) : deg == 6 ? gfx_measurestr("VI", dw, dh) : gfx_measurestr("VII", dw, dh);
+      gfx_x = ctx - dw/2; gfx_y = cty;
+      deg == 1 ? gfx_drawstr("I") : deg == 2 ? gfx_drawstr("II") :
+      deg == 3 ? gfx_drawstr("III") : deg == 4 ? gfx_drawstr("IV") :
+      deg == 5 ? gfx_drawstr("V") : deg == 6 ? gfx_drawstr("VI") : gfx_drawstr("VII");
+    );
+    gfx_setfont(1, "Arial", 32, 'b'); // відновлення основного шрифту (збільшено)
   );
 );
 
@@ -284,8 +319,8 @@ mouse_click ? (
       t_y_min = cy + sin(angle) * r_min;
 
       // Перевіряємо колізію з колами навколо мажорного або мінорного тексту
-      (mouse_x - t_x_maj)*(mouse_x - t_x_maj) + (mouse_y - t_y_maj)*(mouse_y - t_y_maj) <= 25*25 ||
-      (mouse_x - t_x_min)*(mouse_x - t_x_min) + (mouse_y - t_y_min)*(mouse_y - t_y_min) <= 22*22 ? (
+      (mouse_x - t_x_maj)*(mouse_x - t_x_maj) + (mouse_y - t_y_maj)*(mouse_y - t_y_maj) <= 38*38 ||
+      (mouse_x - t_x_min)*(mouse_x - t_x_min) + (mouse_y - t_y_min)*(mouse_y - t_y_min) <= 35*35 ? (
         selected_center_idx = c_idx;
       );
       c_idx += 1;
@@ -308,7 +343,17 @@ loop(7,
   m_idx += 1;
 );
 
-gfx_setfont(1, "Arial", 20);
+gfx_setfont(1, "Arial", 32, 'b'); // Збільшили текст для акордів на колі та зробили жирним
+
+// Обчислюємо тоніку відносно обраного сектора (Relative Modes підхід)
+mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
+            selected_mode_idx == 2 ? 4 :  // Phrygian (+4)
+            selected_mode_idx == 3 ? 5 :  // Lydian (+5)
+            selected_mode_idx == 4 ? 7 :  // Mixolydian (+7)
+            selected_mode_idx == 5 ? 9 :  // Aeolian (+9)
+            selected_mode_idx == 6 ? 11 : 0;// Locrian (+11)
+
+key_root = (pM[selected_center_idx] + mode_offs) % 12;
 
 // Відмальовка 12 позицій кола
 i = 0;
@@ -325,14 +370,16 @@ loop(12,
   x_maj = cx + cos(angle) * r_maj;
   y_maj = cy + sin(angle) * r_maj;
 
+  is_maj_played = (current_btype == 0 && current_root == pM[i]);
+
   // Якщо поточний мажорний акорд відповідає цій комірці - підсвічуємо
-  current_btype == 0 && current_root == pM[i] ? (
+  is_maj_played ? (
     gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=0.9;
-    gfx_circle(x_maj, y_maj, 25, 1, 1); // Залитий круг
+    gfx_circle(x_maj, y_maj, 38, 1, 1); // Залитий круг
     gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст
   ) : in_cluster ? (
     gfx_r=0.25; gfx_g=0.25; gfx_b=0.28; gfx_a=1; // Темно-сірий фон для діатонічних акордів
-    gfx_circle(x_maj, y_maj, 25, 1, 1);
+    gfx_circle(x_maj, y_maj, 38, 1, 1);
     gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1; // Білий текст
   ) : (
     gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1; // Звичайний приглушений текст
@@ -351,17 +398,21 @@ loop(12,
   gfx_x = x_maj - w/2; gfx_y = y_maj - h/2;
   draw_maj_name(i);
 
+  // Нумерація ступенів для мажорного кола
+  draw_circle_roman(get_scale_degree(pM[i], key_root, selected_mode_idx), x_maj, y_maj + h/2 + 2, 0, is_maj_played);
+
   // === МІНОРНЕ КОЛО (Внутрішнє) ===
   x_min = cx + cos(angle) * r_min;
   y_min = cy + sin(angle) * r_min;
+  is_min_played = (current_btype == 1 && current_root == pMin[i]);
 
-  current_btype == 1 && current_root == pMin[i] ? (
+  is_min_played ? (
     gfx_r=0; gfx_g=0.8; gfx_b=1; gfx_a=0.9;
-    gfx_circle(x_min, y_min, 22, 1, 1);
+    gfx_circle(x_min, y_min, 35, 1, 1);
     gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст
   ) : in_cluster ? (
     gfx_r=0.25; gfx_g=0.25; gfx_b=0.28; gfx_a=1; // Темно-сірий фон для діатонічних акордів
-    gfx_circle(x_min, y_min, 22, 1, 1);
+    gfx_circle(x_min, y_min, 35, 1, 1);
     gfx_r=0.8; gfx_g=0.85; gfx_b=0.9; gfx_a=1; // Трохи блакитний/білий текст
   ) : (
     gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1; // Звичайний приглушений текст
@@ -379,22 +430,12 @@ loop(12,
   gfx_x = x_min - w/2; gfx_y = y_min - h/2;
   draw_min_name(i);
 
+  // Нумерація ступенів для мінорного кола
+  draw_circle_roman(get_scale_degree(pMin[i], key_root, selected_mode_idx), x_min, y_min + h/2 + 2, 1, is_min_played);
+
   i += 1;
 );
 
-// Відмальовка точного знайденого акорду в центрі
-current_root >= 0 ? (
-  gfx_setfont(1, "Arial", 28);
-  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
-
-  // Просто малюємо приблизно по центру
-  gfx_x = cx - 20;
-  gfx_y = cy - 15;
-  draw_root_name(current_root);
-  draw_chord_ext(current_type);
-);
-
-// === ПІАНІНО ===
 // Обчислюємо тоніку відносно обраного сектора (Relative Modes підхід)
 mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
             selected_mode_idx == 2 ? 4 :  // Phrygian (+4)
@@ -404,6 +445,49 @@ mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
             selected_mode_idx == 6 ? 11 : 0;// Locrian (+11)
 
 key_root = (pM[selected_center_idx] + mode_offs) % 12;
+
+// Відмальовка точного знайденого акорду в центрі
+current_root >= 0 ? (
+  gfx_setfont(1, "Arial", 40, 'b'); // Збільшений та жирний шрифт для центрового акорду
+  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+
+  // Просто малюємо приблизно по центру
+  gfx_x = cx - 35; // Змістив ліворуч через більший розмір тексту
+  gfx_y = cy - 25;
+  draw_root_name(current_root);
+  draw_chord_ext(current_type);
+
+  // Визначаємо ступінь акорду в поточній тональності
+  deg = get_scale_degree(current_root, key_root, selected_mode_idx);
+
+  deg > 0 ? (
+    gfx_setfont(1, "Arial", 22); // Менший шрифт для цифри
+    gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+    gfx_drawstr(" (");
+
+    // В музичній теорії мінорні/зменшені акорди позначають малими літерами
+    current_btype == 1 ? (
+      deg == 1 ? gfx_drawstr("i") :
+      deg == 2 ? gfx_drawstr("ii") :
+      deg == 3 ? gfx_drawstr("iii") :
+      deg == 4 ? gfx_drawstr("iv") :
+      deg == 5 ? gfx_drawstr("v") :
+      deg == 6 ? gfx_drawstr("vi") :
+      deg == 7 ? gfx_drawstr("vii") : 0;
+    ) : (
+      deg == 1 ? gfx_drawstr("I") :
+      deg == 2 ? gfx_drawstr("II") :
+      deg == 3 ? gfx_drawstr("III") :
+      deg == 4 ? gfx_drawstr("IV") :
+      deg == 5 ? gfx_drawstr("V") :
+      deg == 6 ? gfx_drawstr("VI") :
+      deg == 7 ? gfx_drawstr("VII") : 0;
+    );
+    gfx_drawstr(")");
+  );
+);
+
+// === ПІАНІНО ===
 kb_y = gfx_h - kb_h;
 w_keys = 14;      // Малюємо рівно 2 октави (14 білих клавіш)
 w_w = gfx_w / w_keys;
