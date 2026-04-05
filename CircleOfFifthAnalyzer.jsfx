@@ -9,6 +9,8 @@ init_done == 0 ? (
   selected_mode_idx = 0;   // Режим за замовчуванням: Ionian (0)
   selected_voicing = 0;    // Тип акорду: 0=Diatonic, 1=Maj, 2=Min, 3=Dim, 4=Aug, 5=Sus2, 6=Sus4, 7=5
   selected_extension = 0;  // 0=None, 1=7th, 2=9th
+  selected_strum = 0;      // 0=None, 1=Fast, 2=Medium, 3=Slow
+  strum_step = 5;          // Стан таймера струму (5 = неактивно)
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -210,6 +212,7 @@ file_var(0, selected_center_idx);
 file_var(1, selected_mode_idx);
 file_var(2, selected_voicing);
 file_var(3, selected_extension);
+file_var(4, selected_strum);
 
 @block
 // Читання MIDI-повідомлень
@@ -235,25 +238,61 @@ while(midirecv(offset, msg1, msg2, msg3)) (
 // Відправка MIDI з UI
 req_changed = (req_n1 != active_n1) || (req_n2 != active_n2) || (req_n3 != active_n3) || (req_n4 != active_n4) || (req_n5 != active_n5);
 req_changed ? (
-  active_n1 != -1 ? (midisend(0, 128, active_n1, 0); notes_held[active_n1 % 12] -= 1; );
-  active_n2 != -1 ? (midisend(0, 128, active_n2, 0); notes_held[active_n2 % 12] -= 1; );
-  active_n3 != -1 ? (midisend(0, 128, active_n3, 0); notes_held[active_n3 % 12] -= 1; );
-  active_n4 != -1 ? (midisend(0, 128, active_n4, 0); notes_held[active_n4 % 12] -= 1; );
-  active_n5 != -1 ? (midisend(0, 128, active_n5, 0); notes_held[active_n5 % 12] -= 1; );
+  // 1. Зупиняємо старі ноти, які встигли зігратись (залежно від кроку струму)
+  active_n1 != -1 && strum_step > 0 ? (midisend(0, 128, active_n1, 0); notes_held[active_n1 % 12] -= 1; );
+  active_n2 != -1 && strum_step > 1 ? (midisend(0, 128, active_n2, 0); notes_held[active_n2 % 12] -= 1; );
+  active_n3 != -1 && strum_step > 2 ? (midisend(0, 128, active_n3, 0); notes_held[active_n3 % 12] -= 1; );
+  active_n4 != -1 && strum_step > 3 ? (midisend(0, 128, active_n4, 0); notes_held[active_n4 % 12] -= 1; );
+  active_n5 != -1 && strum_step > 4 ? (midisend(0, 128, active_n5, 0); notes_held[active_n5 % 12] -= 1; );
 
+  // 2. Оновлюємо активні ноти
   active_n1 = req_n1;
   active_n2 = req_n2;
   active_n3 = req_n3;
   active_n4 = req_n4;
   active_n5 = req_n5;
 
-  active_n1 != -1 ? (midisend(0, 144, active_n1, 100); notes_held[active_n1 % 12] += 1; );
-  active_n2 != -1 ? (midisend(0, 144, active_n2, 100); notes_held[active_n2 % 12] += 1; );
-  active_n3 != -1 ? (midisend(0, 144, active_n3, 100); notes_held[active_n3 % 12] += 1; );
-  active_n4 != -1 ? (midisend(0, 144, active_n4, 100); notes_held[active_n4 % 12] += 1; );
-  active_n5 != -1 ? (midisend(0, 144, active_n5, 100); notes_held[active_n5 % 12] += 1; );
+  // 3. Запускаємо нові
+  active_n1 == -1 ? (
+    strum_step = 5; // Нічого грати, акорд відпущено
+  ) : selected_strum == 0 ? (
+    // Граємо все відразу
+    strum_step = 5;
+    active_n1 != -1 ? (midisend(0, 144, active_n1, 100); notes_held[active_n1 % 12] += 1; );
+    active_n2 != -1 ? (midisend(0, 144, active_n2, 100); notes_held[active_n2 % 12] += 1; );
+    active_n3 != -1 ? (midisend(0, 144, active_n3, 100); notes_held[active_n3 % 12] += 1; );
+    active_n4 != -1 ? (midisend(0, 144, active_n4, 100); notes_held[active_n4 % 12] += 1; );
+    active_n5 != -1 ? (midisend(0, 144, active_n5, 100); notes_held[active_n5 % 12] += 1; );
+  ) : (
+    // Запускаємо Strum
+    strum_step = 0;
+    strum_timer = 0; // Перша нота зіграє без затримки
+  );
 
   idx_c=0; loop(12, notes_held[idx_c] < 0 ? notes_held[idx_c] = 0; idx_c+=1;);
+);
+
+// Strum процесор (відкладене відтворення нот через затримку)
+strum_step < 5 ? (
+  s_off = 0;
+  while(strum_step < 5 && s_off < samplesblock) (
+    strum_timer <= 0 ? (
+      strum_step == 0 && active_n1 != -1 ? (midisend(s_off, 144, active_n1, 100); notes_held[active_n1 % 12] += 1;);
+      strum_step == 1 && active_n2 != -1 ? (midisend(s_off, 144, active_n2, 100); notes_held[active_n2 % 12] += 1;);
+      strum_step == 2 && active_n3 != -1 ? (midisend(s_off, 144, active_n3, 100); notes_held[active_n3 % 12] += 1;);
+      strum_step == 3 && active_n4 != -1 ? (midisend(s_off, 144, active_n4, 100); notes_held[active_n4 % 12] += 1;);
+      strum_step == 4 && active_n5 != -1 ? (midisend(s_off, 144, active_n5, 100); notes_held[active_n5 % 12] += 1;);
+
+      strum_step += 1;
+      // Встановлюємо затримку до наступної ноти
+      strum_timer = selected_strum == 1 ? floor(0.018 * srate) :
+                    selected_strum == 2 ? floor(0.040 * srate) : floor(0.080 * srate);
+    ) : (
+      jump = min(strum_timer, samplesblock - s_off);
+      strum_timer -= jump;
+      s_off += jump;
+    );
+  );
 );
 
 // Аналіз акордів на основі активних нот
@@ -360,6 +399,11 @@ mouse_click ? (
   mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 330 && mouse_y <= 380 ? (
     e_idx = floor((mouse_y - 330) / 16);
     e_idx >= 0 && e_idx <= 2 ? selected_extension = e_idx;
+  ) :
+  // Перевіряємо кліки по меню "Strum" (зліва під Extensions)
+  mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 410 && mouse_y <= 480 ? (
+    s_idx = floor((mouse_y - 410) / 16);
+    s_idx >= 0 && s_idx <= 3 ? selected_strum = s_idx;
   ) : (
     // Інакше перевіряємо кліки по колу
     c_idx = 0;
@@ -509,6 +553,29 @@ loop(3,
   e_idx == 0 ? gfx_drawstr("None (Triads)") :
   e_idx == 1 ? gfx_drawstr("Add 7th") : gfx_drawstr("Add 9th");
   e_idx += 1;
+);
+
+// === STRUM MENU (Left, below Extensions) ===
+strum_y_start = 390;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = strum_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Strum Effect:");
+
+gfx_setfont(1, "Arial", 14);
+s_idx = 0;
+loop(4,
+  s_y = strum_y_start + 20 + s_idx * 16;
+  s_idx == selected_strum ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = s_y;
+  s_idx == 0 ? gfx_drawstr("None") :
+  s_idx == 1 ? gfx_drawstr("Fast") :
+  s_idx == 2 ? gfx_drawstr("Medium") : gfx_drawstr("Slow");
+  s_idx += 1;
 );
 
 gfx_x = 10; gfx_y = v_y_start;
