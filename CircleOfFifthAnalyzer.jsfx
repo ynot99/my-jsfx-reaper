@@ -8,6 +8,7 @@ init_done == 0 ? (
   selected_center_idx = 0; // Тоніка за замовчуванням: C (індекс 0)
   selected_mode_idx = 0;   // Режим за замовчуванням: Ionian (0)
   selected_voicing = 0;    // Тип акорду: 0=Diatonic, 1=Maj, 2=Min, 3=Dim, 4=Aug, 5=Sus2, 6=Sus4, 7=5
+  selected_extension = 0;  // 0=None, 1=7th, 2=9th
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -16,8 +17,8 @@ last_mouse_cap = 0;
 notes_held = 300;
 i = 0; loop(12, notes_held[i] = 0; i += 1);
 
-active_n1 = -1; active_n2 = -1; active_n3 = -1;
-req_n1 = -1; req_n2 = -1; req_n3 = -1;
+active_n1 = -1; active_n2 = -1; active_n3 = -1; active_n4 = -1; active_n5 = -1;
+req_n1 = -1; req_n2 = -1; req_n3 = -1; req_n4 = -1; req_n5 = -1;
 
 current_root = -1; // Нота (0-11)
 current_type = -1; // 0 = Мажор, 1 = Мінор
@@ -208,6 +209,7 @@ function draw_hatching(rx, ry, rw, rh) local(c, st, x1, y1, x2, y2) (
 file_var(0, selected_center_idx);
 file_var(1, selected_mode_idx);
 file_var(2, selected_voicing);
+file_var(3, selected_extension);
 
 @block
 // Читання MIDI-повідомлень
@@ -231,19 +233,25 @@ while(midirecv(offset, msg1, msg2, msg3)) (
     );
 
 // Відправка MIDI з UI
-req_changed = (req_n1 != active_n1) || (req_n2 != active_n2) || (req_n3 != active_n3);
+req_changed = (req_n1 != active_n1) || (req_n2 != active_n2) || (req_n3 != active_n3) || (req_n4 != active_n4) || (req_n5 != active_n5);
 req_changed ? (
   active_n1 != -1 ? (midisend(0, 128, active_n1, 0); notes_held[active_n1 % 12] -= 1; );
   active_n2 != -1 ? (midisend(0, 128, active_n2, 0); notes_held[active_n2 % 12] -= 1; );
   active_n3 != -1 ? (midisend(0, 128, active_n3, 0); notes_held[active_n3 % 12] -= 1; );
+  active_n4 != -1 ? (midisend(0, 128, active_n4, 0); notes_held[active_n4 % 12] -= 1; );
+  active_n5 != -1 ? (midisend(0, 128, active_n5, 0); notes_held[active_n5 % 12] -= 1; );
 
   active_n1 = req_n1;
   active_n2 = req_n2;
   active_n3 = req_n3;
+  active_n4 = req_n4;
+  active_n5 = req_n5;
 
   active_n1 != -1 ? (midisend(0, 144, active_n1, 100); notes_held[active_n1 % 12] += 1; );
   active_n2 != -1 ? (midisend(0, 144, active_n2, 100); notes_held[active_n2 % 12] += 1; );
   active_n3 != -1 ? (midisend(0, 144, active_n3, 100); notes_held[active_n3 % 12] += 1; );
+  active_n4 != -1 ? (midisend(0, 144, active_n4, 100); notes_held[active_n4 % 12] += 1; );
+  active_n5 != -1 ? (midisend(0, 144, active_n5, 100); notes_held[active_n5 % 12] += 1; );
 
   idx_c=0; loop(12, notes_held[idx_c] < 0 ? notes_held[idx_c] = 0; idx_c+=1;);
 );
@@ -347,6 +355,11 @@ mouse_click ? (
   mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 180 && mouse_y <= 310 ? (
     v_idx = floor((mouse_y - 180) / 16);
     v_idx >= 0 && v_idx <= 7 ? selected_voicing = v_idx;
+  ) :
+  // Перевіряємо кліки по меню "Extensions" (зліва під Chord Type)
+  mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 330 && mouse_y <= 380 ? (
+    e_idx = floor((mouse_y - 330) / 16);
+    e_idx >= 0 && e_idx <= 2 ? selected_extension = e_idx;
   ) : (
     // Інакше перевіряємо кліки по колу
     c_idx = 0;
@@ -357,18 +370,19 @@ mouse_click ? (
       t_x_min = cx + cos(angle) * r_min;
       t_y_min = cy + sin(angle) * r_min;
 
-      // Перевіряємо колізію з колами навколо мажорного або мінорного тексту
-      (mouse_x - t_x_maj)*(mouse_x - t_x_maj) + (mouse_y - t_y_maj)*(mouse_y - t_y_maj) <= 38*38 ||
-      (mouse_x - t_x_min)*(mouse_x - t_x_min) + (mouse_y - t_y_min)*(mouse_y - t_y_min) <= 35*35 ? (
+      // Перевіряємо клік по мажорному або мінорному колу
+      pow(mouse_x - t_x_maj, 2) + pow(mouse_y - t_y_maj, 2) <= pow(38, 2) ||
+      pow(mouse_x - t_x_min, 2) + pow(mouse_y - t_y_min, 2) <= pow(35, 2) ? (
         selected_center_idx = c_idx;
       );
+
       c_idx += 1;
     );
   );
 );
 
-// === DIATONIC CHORDS MENU (Top Right) ===
-panel_w = 90;
+// === ВІДМАЛЬОВКА БІЧНОЇ ПАНЕЛІ (Play Chords) ===
+panel_w = 110;
 panel_x = gfx_w - panel_w - 10;
 panel_y = 10;
 
@@ -377,7 +391,7 @@ gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
 gfx_x = panel_x - 10; gfx_y = panel_y;
 gfx_drawstr("Play Chords:");
 
-new_req_n1 = -1; new_req_n2 = -1; new_req_n3 = -1;
+new_req_n1 = -1; new_req_n2 = -1; new_req_n3 = -1; new_req_n4 = -1; new_req_n5 = -1;
 
 d_idx = 0;
 loop(7,
@@ -385,6 +399,7 @@ loop(7,
   btn_h = 26;
 
   n1 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx);
+  n4 = -1; n5 = -1;
 
   selected_voicing == 0 ? (
     n2 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx+2) + (d_idx+2>=7 ? 12 : 0);
@@ -393,13 +408,24 @@ loop(7,
     type_str = i5 == 6 ? "dim" : (i3 == 3 ? "m" : "");
     is_min = (i3 == 3);
     is_dim = (i5 == 6);
+
+    selected_extension >= 1 ? (
+      n4 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx+6) + (d_idx+6>=7 ? 12 : 0);
+      i7 = n4 - n1;
+      type_str = i5 == 6 ? "m7b5" : (i3 == 3 ? "m7" : (i7 == 11 ? "maj7" : "7"));
+      is_dim = 0;
+    );
+    selected_extension == 2 ? (
+      n5 = 60 + key_root + get_mode_offset(selected_mode_idx, d_idx+8) + (d_idx+8>=14 ? 24 : 12);
+      type_str = i5 == 6 ? "m9b5" : (i3 == 3 ? "m9" : (i7 == 11 ? "maj9" : "9"));
+    );
   ) : (
-    selected_voicing == 1 ? ( n2 = n1 + 4; n3 = n1 + 7; type_str = "maj"; is_min = 0; is_dim = 0; ) :
-    selected_voicing == 2 ? ( n2 = n1 + 3; n3 = n1 + 7; type_str = "m";   is_min = 1; is_dim = 0; ) :
-    selected_voicing == 3 ? ( n2 = n1 + 3; n3 = n1 + 6; type_str = "dim"; is_min = 1; is_dim = 1; ) :
-    selected_voicing == 4 ? ( n2 = n1 + 4; n3 = n1 + 8; type_str = "aug"; is_min = 0; is_dim = 0; ) :
-    selected_voicing == 5 ? ( n2 = n1 + 2; n3 = n1 + 7; type_str = "sus2";is_min = 0; is_dim = 0; ) :
-    selected_voicing == 6 ? ( n2 = n1 + 5; n3 = n1 + 7; type_str = "sus4";is_min = 0; is_dim = 0; ) :
+    selected_voicing == 1 ? ( n2 = n1 + 4; n3 = n1 + 7; type_str = selected_extension==0?"maj":selected_extension==1?"maj7":"maj9"; n4=selected_extension>=1?n1+11:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    selected_voicing == 2 ? ( n2 = n1 + 3; n3 = n1 + 7; type_str = selected_extension==0?"m":selected_extension==1?"m7":"m9";     n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=1; is_dim=0; ) :
+    selected_voicing == 3 ? ( n2 = n1 + 3; n3 = n1 + 6; type_str = selected_extension==0?"dim":selected_extension==1?"dim7":"dim9"; n4=selected_extension>=1?n1+9:-1;  n5=selected_extension==2?n1+14:-1; is_min=1; is_dim=1; ) :
+    selected_voicing == 4 ? ( n2 = n1 + 4; n3 = n1 + 8; type_str = selected_extension==0?"aug":selected_extension==1?"aug7":"aug9"; n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    selected_voicing == 5 ? ( n2 = n1 + 2; n3 = n1 + 7; type_str = selected_extension==0?"sus2":selected_extension==1?"sus2/7":"sus2/9"; n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    selected_voicing == 6 ? ( n2 = n1 + 5; n3 = n1 + 7; type_str = selected_extension==0?"sus4":selected_extension==1?"sus4/7":"sus4/9"; n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
     ( n2 = n1 + 7; n3 = -1; type_str = "5"; is_min = 0; is_dim = 0; ); // Power chord (no 3rd)
   );
 
@@ -407,19 +433,17 @@ loop(7,
   is_down = is_hover && (mouse_cap & 1);
 
   is_down ? (
-    new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3;
+    new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3; new_req_n4 = n4; new_req_n5 = n5;
     gfx_r=0.2; gfx_g=0.6; gfx_b=1.0; gfx_a=0.9;
   ) : is_hover ? (
-    gfx_r=0.3; gfx_g=0.3; gfx_b=0.35; gfx_a=0.8;
+    gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
   ) : (
-    gfx_r=0.15; gfx_g=0.15; gfx_b=0.18; gfx_a=0.7;
+    gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
   );
 
   gfx_rect(panel_x, btn_y, panel_w, btn_h);
 
-  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
-  gfx_setfont(1, "Arial", 16, 'b');
-
+  gfx_r=0.8; gfx_g=0.8; gfx_b=0.8; gfx_a=1;
   gfx_x = panel_x + 5;
   gfx_y = btn_y + 5;
 
@@ -442,7 +466,7 @@ loop(7,
 
   d_idx += 1;
 );
-req_n1 = new_req_n1; req_n2 = new_req_n2; req_n3 = new_req_n3;
+req_n1 = new_req_n1; req_n2 = new_req_n2; req_n3 = new_req_n3; req_n4 = new_req_n4; req_n5 = new_req_n5;
 
 gfx_setfont(1, "Arial", 32, 'b');
 
@@ -465,6 +489,28 @@ loop(7,
 // === CHORD VOICING MENU (Left, below modes) ===
 v_y_start = 160;
 gfx_setfont(1, "Arial", 14, 'b');
+// === EXTENSIONS MENU (Left, below Chord Type) ===
+ext_y_start = 310;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = ext_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Extensions:");
+
+gfx_setfont(1, "Arial", 14);
+e_idx = 0;
+loop(3,
+  e_y = ext_y_start + 20 + e_idx * 16;
+  e_idx == selected_extension ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = e_y;
+  e_idx == 0 ? gfx_drawstr("None (Triads)") :
+  e_idx == 1 ? gfx_drawstr("Add 7th") : gfx_drawstr("Add 9th");
+  e_idx += 1;
+);
+
 gfx_x = 10; gfx_y = v_y_start;
 gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
 gfx_drawstr("Chord Type:");
