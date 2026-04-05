@@ -7,7 +7,7 @@ pi = 3.14159265;
 notes_held = 300;
 i = 0; loop(12, notes_held[i] = 0; i += 1);
 
-current_root = -1;
+current_root = -1; // Нота (0-11)
 current_type = -1; // 0 = Мажор, 1 = Мінор
 
 // Мапінг позицій на колі (від 0 до 11, за годинниковою стрілкою) на pitch-класи
@@ -40,6 +40,27 @@ function draw_min_name(idx) (
   idx == 10 ? gfx_drawstr("Gm") : idx == 11 ? gfx_drawstr("Dm") : 0;
 );
 
+function draw_root_name(root) (
+  root == 0 ? gfx_drawstr("C") : root == 1 ? gfx_drawstr("Db") :
+  root == 2 ? gfx_drawstr("D") : root == 3 ? gfx_drawstr("Eb") :
+  root == 4 ? gfx_drawstr("E") : root == 5 ? gfx_drawstr("F") :
+  root == 6 ? gfx_drawstr("F#") : root == 7 ? gfx_drawstr("G") :
+  root == 8 ? gfx_drawstr("Ab") : root == 9 ? gfx_drawstr("A") :
+  root == 10 ? gfx_drawstr("Bb") : root == 11 ? gfx_drawstr("B") : 0;
+);
+
+function draw_chord_ext(type) (
+  type == 1 ? gfx_drawstr("m") :
+  type == 2 ? gfx_drawstr("dim") :
+  type == 3 ? gfx_drawstr("aug") :
+  type == 4 ? gfx_drawstr("sus2") :
+  type == 5 ? gfx_drawstr("sus4") :
+  type == 6 ? gfx_drawstr("5") :
+  type == 7 ? gfx_drawstr("maj7") :
+  type == 8 ? gfx_drawstr("m7") :
+  type == 9 ? gfx_drawstr("7") : 0;
+);
+
 @block
 // Читання MIDI-повідомлень
 while(midirecv(offset, msg1, msg2, msg3)) (
@@ -61,20 +82,61 @@ while(midirecv(offset, msg1, msg2, msg3)) (
   midisend(offset, msg1, msg2, msg3);
 );
 
-// Аналіз акордів на основі активних нот (базові тризвуки)
+// Аналіз акордів на основі активних нот
 current_root = -1;
 current_type = -1;
+current_btype = -1;
 
+match_score = 0;
 r = 0;
 loop(12,
-  // Перевірка мажорного тризвуку: Корінь, Велика терція (+4), Чиста квінта (+7)
-  notes_held[r] > 0 && notes_held[(r+4)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
-    current_root = r; current_type = 0;
+  // 5 (Power chord: 1, 5)
+  notes_held[r] > 0 && notes_held[(r+7)%12] > 0 && notes_held[(r+4)%12] == 0 && notes_held[(r+3)%12] == 0 ? (
+    match_score < 2 ? ( match_score = 2; current_root = r; current_type = 6; current_btype = 0; );
   );
-  // Перевірка мінорного тризвуку: Корінь, Мала терція (+3), Чиста квінта (+7)
+
+  // Sus2 (1, 2, 5)
+  notes_held[r] > 0 && notes_held[(r+2)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
+    match_score < 3 ? ( match_score = 3; current_root = r; current_type = 4; current_btype = 0; );
+  );
+
+  // Sus4 (1, 4, 5)
+  notes_held[r] > 0 && notes_held[(r+5)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
+    match_score < 3 ? ( match_score = 3; current_root = r; current_type = 5; current_btype = 0; );
+  );
+
+  // Dim (1, b3, b5)
+  notes_held[r] > 0 && notes_held[(r+3)%12] > 0 && notes_held[(r+6)%12] > 0 ? (
+    match_score < 4 ? ( match_score = 4; current_root = r; current_type = 2; current_btype = 1; );
+  );
+
+  // Aug (1, 3, #5)
+  notes_held[r] > 0 && notes_held[(r+4)%12] > 0 && notes_held[(r+8)%12] > 0 ? (
+    match_score < 4 ? ( match_score = 4; current_root = r; current_type = 3; current_btype = 0; );
+  );
+
+  // Min (1, b3, 5)
   notes_held[r] > 0 && notes_held[(r+3)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
-    current_root = r; current_type = 1;
+    match_score < 5 ? ( match_score = 5; current_root = r; current_type = 1; current_btype = 1; );
+    // Min7 (1, b3, 5, b7)
+    notes_held[(r+10)%12] > 0 ? (
+      match_score < 6 ? ( match_score = 6; current_root = r; current_type = 8; current_btype = 1; );
+    );
   );
+
+  // Maj (1, 3, 5)
+  notes_held[r] > 0 && notes_held[(r+4)%12] > 0 && notes_held[(r+7)%12] > 0 ? (
+    match_score < 5 ? ( match_score = 5; current_root = r; current_type = 0; current_btype = 0; );
+    // Maj7 (1, 3, 5, 7)
+    notes_held[(r+11)%12] > 0 ? (
+      match_score < 6 ? ( match_score = 6; current_root = r; current_type = 7; current_btype = 0; );
+    );
+    // Dom7 (1, 3, 5, b7)
+    notes_held[(r+10)%12] > 0 ? (
+      match_score < 6 ? ( match_score = 6; current_root = r; current_type = 9; current_btype = 0; );
+    );
+  );
+
   r += 1;
 );
 
@@ -100,7 +162,7 @@ loop(12,
   y_maj = cy + sin(angle) * r_maj;
 
   // Якщо поточний мажорний акорд відповідає цій комірці - підсвічуємо
-  current_type == 0 && current_root == pM[i] ? (
+  current_btype == 0 && current_root == pM[i] ? (
     gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=0.9;
     gfx_circle(x_maj, y_maj, 25, 1, 1); // Залитий круг
     gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст
@@ -125,7 +187,7 @@ loop(12,
   x_min = cx + cos(angle) * r_min;
   y_min = cy + sin(angle) * r_min;
 
-  current_type == 1 && current_root == pMin[i] ? (
+  current_btype == 1 && current_root == pMin[i] ? (
     gfx_r=0; gfx_g=0.8; gfx_b=1; gfx_a=0.9;
     gfx_circle(x_min, y_min, 22, 1, 1);
     gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1;
@@ -146,4 +208,16 @@ loop(12,
   draw_min_name(i);
 
   i += 1;
+);
+
+// Відмальовка точного знайденого акорду в центрі
+current_root >= 0 ? (
+  gfx_setfont(1, "Arial", 28);
+  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+
+  // Просто малюємо приблизно по центру
+  gfx_x = cx - 20;
+  gfx_y = cy - 15;
+  draw_root_name(current_root);
+  draw_chord_ext(current_type);
 );
