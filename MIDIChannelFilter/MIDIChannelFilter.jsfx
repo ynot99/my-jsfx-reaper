@@ -1,0 +1,21 @@
+desc: MIDI Channel Filter
+
+// Слайдер для вибору каналу, який ми хочемо залишити
+slider1:2<1,16,1>Pass Channel (1-16)
+
+@block
+while (midirecv(offset, msg1, msg2, msg3)) (
+  // MIDI status byte (msg1): 
+  // Верхні 4 біти - тип повідомлення (Note On/Off)
+  // Нижні 4 біти - канал (0-15)
+  
+  // Отримуємо номер каналу з повідомлення
+  msg_chan = (msg1 & 15) + 1;
+  
+  // LOGIC: Якщо канал повідомлення збігається з обраним у слайдері - пропускаємо далі
+  msg_chan == slider1 ? (
+    midisend(offset, msg1, msg2, msg3);
+  );
+  
+  // Всі інші канали просто ігноруються (не викликається midisend)
+);

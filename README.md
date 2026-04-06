@@ -7,6 +7,9 @@ This repository will store various MIDI and audio effects designed to extend REA
 * **[Circle of Fifths Analyzer](./CircleOfFifthAnalyzer/)**
   An interactive Circle of Fifths visualizer and MIDI chord generator. It allows you to visually analyze keys and click on the circle to play chords, select chord types, add extensions (7ths, 9ths), and automate parameters.
 
+* **[MIDI Channel Filter](./MIDIChannelFilter/)**
+  A lightweight MIDI filter that isolates and passes through notes from a specific user-selected MIDI channel. Perfect for selective arpeggiation or routing specific chord notes to independent VST instruments on the same track.
+
 ## 📥 How to Install
 
 To add these plugins to your REAPER:
