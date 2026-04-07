@@ -103,7 +103,9 @@ function draw_chord_ext(type) (
   type == 20 ? gfx_drawstr("7sus4") :
   type == 21 ? gfx_drawstr("m7b5") :
   type == 22 ? gfx_drawstr("dim7") :
-  type == 23 ? gfx_drawstr("mM7") : 0;
+  type == 23 ? gfx_drawstr("mM7") :
+  type == 24 ? gfx_drawstr("add11") :
+  type == 25 ? gfx_drawstr("madd11") : 0;
 );
 
 function draw_mode_name(idx) (
@@ -356,12 +358,12 @@ loop(12,
     );
 
     // Sus2 (1, 2, 5)
-    h2 && h5 ? (
+    h2 && h5 && !h3 && !h3b ? (
       match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 4; current_btype = 0; );
     );
 
     // Sus4 (1, 4, 5)
-    h4 && h5 ? (
+    h4 && h5 && !h3 && !h3b ? (
       match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 5; current_btype = 0; );
       h7b ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 20; current_btype = 0; ) : 0; ) : 0; // 7sus4
     );
@@ -399,6 +401,7 @@ loop(12,
       h7 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 23; current_btype = 1; ) : 0; ) : 0; // mM7
       h6 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 17; current_btype = 1; ) : 0; ) : 0;
       !h7 && !h7b && h2 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 19; current_btype = 1; ) : 0; ) : 0;
+      !h7 && !h7b && !h2 && h4 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 25; current_btype = 1; ) : 0; ) : 0;
     );
 
     // Maj / Dom (allows omitting 5th if 7th is present)
@@ -435,6 +438,7 @@ loop(12,
         );
       ) : 0;
       !h7 && !h7b && h2 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 18; current_btype = 0; ) : 0; ) : 0;
+      !h7 && !h7b && !h2 && h4 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 24; current_btype = 0; ) : 0; ) : 0;
     );
   );
 
@@ -1237,7 +1241,7 @@ show_chord_browser ? (
   c_r = 0;
   loop(12,
     c_t = 0;
-    loop(20,
+    loop(22,
       // Будуємо маски різних типів акордів відносно "до" (0)
       c_t == 0  ? ( t_m = (1<<0)|(1<<4)|(1<<7);           t_n="Maj"; ) :
       c_t == 1  ? ( t_m = (1<<0)|(1<<3)|(1<<7);           t_n="m"; ) :
@@ -1258,7 +1262,9 @@ show_chord_browser ? (
       c_t == 16 ? ( t_m = (1<<0)|(1<<2)|(1<<3)|(1<<7);    t_n="madd9"; ) :
       c_t == 17 ? ( t_m = (1<<0)|(1<<2)|(1<<4)|(1<<7)|(1<<10); t_n="9"; ) :
       c_t == 18 ? ( t_m = (1<<0)|(1<<2)|(1<<4)|(1<<7)|(1<<11); t_n="Maj9"; ) :
-      c_t == 19 ? ( t_m = (1<<0)|(1<<2)|(1<<3)|(1<<7)|(1<<10); t_n="m9"; ) : 0;
+      c_t == 19 ? ( t_m = (1<<0)|(1<<2)|(1<<3)|(1<<7)|(1<<10); t_n="m9"; ) :
+      c_t == 20 ? ( t_m = (1<<0)|(1<<4)|(1<<5)|(1<<7); t_n="add11"; ) :
+      c_t == 21 ? ( t_m = (1<<0)|(1<<3)|(1<<5)|(1<<7); t_n="madd11"; ) : 0;
 
       // Зсуваємо маску акорду на c_r циклічно
       real_m = 0;
