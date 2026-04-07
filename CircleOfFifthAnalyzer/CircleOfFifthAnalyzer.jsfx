@@ -6,6 +6,7 @@ slider3:0<0,7,1>-Chord Type
 slider4:0<0,2,1>-Extensions
 slider5:0<0,3,1>-Strum Effect
 slider6:0<-3,3,1>-Octave Offset
+slider7:0<0,3,1>-Inversions
 
 @init
 ext_noinit = 1; // Запобігає скиданню всіх змінних при старті відтворення у REAPER
@@ -18,6 +19,7 @@ init_done == 0 ? (
   selected_voicing = 0;    // Тип акорду: 0=Diatonic, 1=Maj, 2=Min, 3=Dim, 4=Aug, 5=Sus2, 6=Sus4, 7=5
   selected_extension = 0;  // 0=None, 1=7th, 2=9th
   selected_strum = 0;      // 0=None, 1=Fast, 2=Medium, 3=Slow
+  selected_inversion = 0;  // 0=Root Pos, 1=1st Inv, 2=2nd Inv, 3=3rd Inv
   strum_step = 5;          // Стан таймера струму (5 = неактивно)
   usr_sel_notes_mask = 0;  // 12-бітня маска для кастомних вибраних нот на піаніно
   play_octave_offset = 0;  // Зміщення октави (-3 до +3)
@@ -226,6 +228,7 @@ selected_voicing = slider3;
 selected_extension = slider4;
 selected_strum = slider5;
 play_octave_offset = slider6;
+selected_inversion = slider7;
 
 @block
 // Читання MIDI-повідомлень
@@ -395,6 +398,31 @@ loop(12,
 );
 
 @gfx 400 400
+
+// Обробка клавіатури
+while((key = gfx_getchar()) > 0) (
+  // Left arrow
+  key == 1818584692 ? (
+    play_octave_offset = max(-3, play_octave_offset - 1);
+    slider6 = play_octave_offset; slider_automate(slider6);
+  ) :
+  // Right arrow
+  key == 1919379572 ? (
+    play_octave_offset = min(3, play_octave_offset + 1);
+    slider6 = play_octave_offset; slider_automate(slider6);
+  ) :
+  // Up arrow
+  key == 30064 ? (
+    selected_inversion = min(3, selected_inversion + 1);
+    slider7 = selected_inversion; slider_automate(slider7);
+  ) :
+  // Down arrow
+  key == 1685026670 ? (
+    selected_inversion = max(0, selected_inversion - 1);
+    slider7 = selected_inversion; slider_automate(slider7);
+  );
+);
+
 // Фон
 gfx_r=0.1; gfx_g=0.1; gfx_b=0.12; gfx_a=1;
 gfx_rect(0,0,gfx_w,gfx_h);
@@ -457,6 +485,11 @@ mouse_click ? (
   mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 410 && mouse_y <= 480 ? (
     s_idx = floor((mouse_y - 410) / 16);
     s_idx >= 0 && s_idx <= 3 ? ( selected_strum = s_idx; slider5 = s_idx; slider_automate(slider5); );
+  ) :
+  // Перевіряємо кліки по меню "Inversions" (зліва під Strum)
+  mouse_x >= 10 && mouse_x <= 130 && mouse_y >= 500 && mouse_y <= 564 ? (
+    inv_click = floor((mouse_y - 500) / 16);
+    inv_click >= 0 && inv_click <= 3 ? ( selected_inversion = inv_click; slider7 = inv_click; slider_automate(slider7); );
   );
   ); // Close !show_chord_browser condition
 );
@@ -664,6 +697,29 @@ loop(4,
   s_idx == 1 ? gfx_drawstr("Fast") :
   s_idx == 2 ? gfx_drawstr("Medium") : gfx_drawstr("Slow");
   s_idx += 1;
+);
+
+// === INVERSIONS MENU (Left, below Strum) ===
+inv_y_start = 480;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = inv_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Inversions:");
+
+gfx_setfont(1, "Arial", 14);
+inv_idx = 0;
+loop(4,
+  i_y = inv_y_start + 20 + inv_idx * 16;
+  inv_idx == selected_inversion ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = i_y;
+  inv_idx == 0 ? gfx_drawstr("Root Pos") :
+  inv_idx == 1 ? gfx_drawstr("1st Inv") :
+  inv_idx == 2 ? gfx_drawstr("2nd Inv") : gfx_drawstr("3rd Inv");
+  inv_idx += 1;
 );
 
 gfx_x = 10; gfx_y = v_y_start;
@@ -893,19 +949,19 @@ current_root >= 0 ? (
 );
 
 // === КНОПКА PLAY SELECTED ТА FIND CHORDS (Над піаніно) ===
+play_cust_w = 120;
+find_chords_w = 120;
+play_cust_h = 26;
+total_w = play_cust_w + 10 + find_chords_w;
+play_cust_x = (gfx_w - total_w) / 2;
+find_chords_x = play_cust_x + play_cust_w + 10;
+play_cust_y = gfx_h - kb_h - play_cust_h - 10;
+
+// Кнопка Play Selected
+is_hover_play_cust = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_down_play_cust = !show_chord_browser && is_hover_play_cust && (mouse_cap & 1);
+
 usr_sel_notes_mask > 0 ? (
-  play_cust_w = 120;
-  find_chords_w = 120;
-  play_cust_h = 26;
-  total_w = play_cust_w + 10 + find_chords_w;
-  play_cust_x = (gfx_w - total_w) / 2;
-  find_chords_x = play_cust_x + play_cust_w + 10;
-  play_cust_y = gfx_h - kb_h - play_cust_h - 10;
-
-  // Кнопка Play Selected
-  is_hover_play_cust = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-  is_down_play_cust = !show_chord_browser && is_hover_play_cust && (mouse_cap & 1);
-
   is_down_play_cust ? (
     gfx_r=0.2; gfx_g=0.6; gfx_b=0.2; gfx_a=0.9;
     c_idx_p = 0; n_count = 0;
@@ -929,40 +985,45 @@ usr_sel_notes_mask > 0 ? (
   ) : (
     gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
   );
-
-  gfx_rect(play_cust_x, play_cust_y, play_cust_w, play_cust_h);
-
-  gfx_setfont(1, "Arial", 14);
-  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
-  gfx_measurestr("Play Selected", psc_w, psc_h);
-  gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
-  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
-  gfx_drawstr("Play Selected");
-
-  // Кнопка Find Chords
-  is_hover_find = mouse_x >= find_chords_x && mouse_x <= find_chords_x + find_chords_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-  is_click_find = !show_chord_browser && is_hover_find && mouse_click;
-
-  is_click_find ? (
-    show_chord_browser = 1;
-  );
-
-  !show_chord_browser && is_hover_find && (mouse_cap & 1) ? (
-    gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
-  ) : is_hover_find ? (
-    gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
-  ) : (
-    gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
-  );
-
-  gfx_rect(find_chords_x, play_cust_y, find_chords_w, play_cust_h);
-
-  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
-  gfx_measurestr("Find Chords", fc_w, fc_h);
-  gfx_x = find_chords_x + (find_chords_w - fc_w) / 2;
-  gfx_y = play_cust_y + (play_cust_h - fc_h) / 2;
-  gfx_drawstr("Find Chords");
+  text_col = 0.9;
+) : (
+  // Якщо немає вибраних нот - малюємо тьмяно
+  gfx_r=0.1; gfx_g=0.1; gfx_b=0.1; gfx_a=1;
+  text_col = 0.4;
 );
+
+gfx_rect(play_cust_x, play_cust_y, play_cust_w, play_cust_h);
+
+gfx_setfont(1, "Arial", 14);
+gfx_r=text_col; gfx_g=text_col; gfx_b=text_col; gfx_a=1;
+gfx_measurestr("Play Selected", psc_w, psc_h);
+gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+gfx_drawstr("Play Selected");
+
+// Кнопка Find Chords (завжди активна)
+is_hover_find = mouse_x >= find_chords_x && mouse_x <= find_chords_x + find_chords_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_click_find = !show_chord_browser && is_hover_find && mouse_click;
+
+is_click_find ? (
+  show_chord_browser = 1;
+);
+
+!show_chord_browser && is_hover_find && (mouse_cap & 1) ? (
+  gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+) : is_hover_find ? (
+  gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+) : (
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+);
+
+gfx_rect(find_chords_x, play_cust_y, find_chords_w, play_cust_h);
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+gfx_measurestr("Find Chords", fc_w, fc_h);
+gfx_x = find_chords_x + (find_chords_w - fc_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - fc_h) / 2;
+gfx_drawstr("Find Chords");
 
 // === ПІАНІНО ===
 kb_y = gfx_h - kb_h;
@@ -1188,6 +1249,41 @@ show_chord_browser ? (
     gfx_x = 20; gfx_y = 60;
     gfx_drawstr("No standard chords found containing these exact notes.");
   );
+);
+
+// === ЗАСТОСУВАННЯ ОБЕРНЕНЬ АКОРДІВ (INVERSIONS) ===
+new_req_n1 != -1 && selected_inversion > 0 ? (
+  arr_n = 500;
+  arr_n[0] = new_req_n1 != -1 ? new_req_n1 : 999;
+  arr_n[1] = new_req_n2 != -1 ? new_req_n2 : 999;
+  arr_n[2] = new_req_n3 != -1 ? new_req_n3 : 999;
+  arr_n[3] = new_req_n4 != -1 ? new_req_n4 : 999;
+  arr_n[4] = new_req_n5 != -1 ? new_req_n5 : 999;
+
+  // Рахуємо кількість дійсних нот
+  v_cnt = 0; loop(5, arr_n[v_cnt] != 999 ? v_cnt += 1;);
+
+  // Для обернень ми просто піднімаємо найнижчу ноту вверх на октаву стільки разів, скільки вибрано
+  loop(selected_inversion,
+    min_v = 999; min_idx = -1;
+    i = 0; loop(5, arr_n[i] < min_v ? (min_v = arr_n[i]; min_idx = i;); i += 1;);
+    min_idx != -1 ? arr_n[min_idx] += 12;
+  );
+
+  // Сортуємо масив, щоб Strum ефект завжди грав від найнижчої за пітчем до найвищої
+  i = 0; loop(4,
+    j = i + 1; loop(4 - i,
+      arr_n[i] > arr_n[j] ? ( t = arr_n[i]; arr_n[i] = arr_n[j]; arr_n[j] = t; );
+      j += 1;
+    );
+    i += 1;
+  );
+
+  new_req_n1 = arr_n[0] != 999 ? arr_n[0] : -1;
+  new_req_n2 = arr_n[1] != 999 ? arr_n[1] : -1;
+  new_req_n3 = arr_n[2] != 999 ? arr_n[2] : -1;
+  new_req_n4 = arr_n[3] != 999 ? arr_n[3] : -1;
+  new_req_n5 = arr_n[4] != 999 ? arr_n[4] : -1;
 );
 
 // Атомарно оновлюємо глобальні запити нот для аудіо-потоку в самому кінці
