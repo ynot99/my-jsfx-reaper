@@ -6,7 +6,7 @@ slider3:0<0,7,1>-Chord Type
 slider4:0<0,2,1>-Extensions
 slider5:0<0,3,1>-Strum Effect
 slider6:0<-3,3,1>-Octave Offset
-slider7:0<0,3,1>-Inversions
+slider7:0<0,4,1>-Inversions
 
 @init
 ext_noinit = 1; // Запобігає скиданню всіх змінних при старті відтворення у REAPER
@@ -25,6 +25,9 @@ init_done == 0 ? (
   play_octave_offset = 0;  // Зміщення октави (-3 до +3)
   actual_notes_held = 400; // Allocating memory block to prevent overlap with pM/pMin
   idx = 0; loop(128, actual_notes_held[idx] = 0; idx += 1);
+  last_chord_cog = 60; // Auto VL base COG (Middle C)
+  auto_inv_val = 0;
+  prev_base_n1 = -1; prev_base_n2 = -1; prev_base_n3 = -1; prev_base_n4 = -1; prev_base_n5 = -1;
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -401,23 +404,23 @@ loop(12,
 
 // Обробка клавіатури
 while((key = gfx_getchar()) > 0) (
-  // Left arrow
-  key == 1818584692 ? (
+  // Left arrow or A/a
+  key == 1818584692 || key == 97 || key == 65 ? (
     play_octave_offset = max(-3, play_octave_offset - 1);
     slider6 = play_octave_offset; slider_automate(slider6);
   ) :
-  // Right arrow
-  key == 1919379572 ? (
+  // Right arrow or D/d
+  key == 1919379572 || key == 100 || key == 68 ? (
     play_octave_offset = min(3, play_octave_offset + 1);
     slider6 = play_octave_offset; slider_automate(slider6);
   ) :
-  // Up arrow
-  key == 30064 ? (
-    selected_inversion = min(3, selected_inversion + 1);
+  // Up arrow or W/w
+  key == 30064 || key == 119 || key == 87 ? (
+    selected_inversion = min(4, selected_inversion + 1);
     slider7 = selected_inversion; slider_automate(slider7);
   ) :
-  // Down arrow
-  key == 1685026670 ? (
+  // Down arrow or S/s
+  key == 1685026670 || key == 115 || key == 83 ? (
     selected_inversion = max(0, selected_inversion - 1);
     slider7 = selected_inversion; slider_automate(slider7);
   );
@@ -487,9 +490,9 @@ mouse_click ? (
     s_idx >= 0 && s_idx <= 3 ? ( selected_strum = s_idx; slider5 = s_idx; slider_automate(slider5); );
   ) :
   // Перевіряємо кліки по меню "Inversions" (зліва під Strum)
-  mouse_x >= 10 && mouse_x <= 130 && mouse_y >= 500 && mouse_y <= 564 ? (
+  mouse_x >= 10 && mouse_x <= 130 && mouse_y >= 500 && mouse_y <= 580 ? (
     inv_click = floor((mouse_y - 500) / 16);
-    inv_click >= 0 && inv_click <= 3 ? ( selected_inversion = inv_click; slider7 = inv_click; slider_automate(slider7); );
+    inv_click >= 0 && inv_click <= 4 ? ( selected_inversion = inv_click; slider7 = inv_click; slider_automate(slider7); );
   );
   ); // Close !show_chord_browser condition
 );
@@ -708,7 +711,7 @@ gfx_drawstr("Inversions:");
 
 gfx_setfont(1, "Arial", 14);
 inv_idx = 0;
-loop(4,
+loop(5,
   i_y = inv_y_start + 20 + inv_idx * 16;
   inv_idx == selected_inversion ? (
     gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
@@ -718,7 +721,8 @@ loop(4,
   gfx_x = 10; gfx_y = i_y;
   inv_idx == 0 ? gfx_drawstr("Root Pos") :
   inv_idx == 1 ? gfx_drawstr("1st Inv") :
-  inv_idx == 2 ? gfx_drawstr("2nd Inv") : gfx_drawstr("3rd Inv");
+  inv_idx == 2 ? gfx_drawstr("2nd Inv") :
+  inv_idx == 3 ? gfx_drawstr("3rd Inv") : gfx_drawstr("Auto VL");
   inv_idx += 1;
 );
 
@@ -1251,39 +1255,89 @@ show_chord_browser ? (
   );
 );
 
-// === ЗАСТОСУВАННЯ ОБЕРНЕНЬ АКОРДІВ (INVERSIONS) ===
-new_req_n1 != -1 && selected_inversion > 0 ? (
-  arr_n = 500;
-  arr_n[0] = new_req_n1 != -1 ? new_req_n1 : 999;
-  arr_n[1] = new_req_n2 != -1 ? new_req_n2 : 999;
-  arr_n[2] = new_req_n3 != -1 ? new_req_n3 : 999;
-  arr_n[3] = new_req_n4 != -1 ? new_req_n4 : 999;
-  arr_n[4] = new_req_n5 != -1 ? new_req_n5 : 999;
+// === ЗАСТОСУВАННЯ ОБЕРНЕНЬ АКОРДІВ (INVERSIONS ТА AUTO VL) ===
+new_req_n1 != -1 ? (
+  base_changed = (new_req_n1 != prev_base_n1) || (new_req_n2 != prev_base_n2) || (new_req_n3 != prev_base_n3) || (new_req_n4 != prev_base_n4) || (new_req_n5 != prev_base_n5);
 
-  // Рахуємо кількість дійсних нот
-  v_cnt = 0; loop(5, arr_n[v_cnt] != 999 ? v_cnt += 1;);
+  base_changed ? (
+    prev_base_n1 = new_req_n1;
+    prev_base_n2 = new_req_n2;
+    prev_base_n3 = new_req_n3;
+    prev_base_n4 = new_req_n4;
+    prev_base_n5 = new_req_n5;
 
-  // Для обернень ми просто піднімаємо найнижчу ноту вверх на октаву стільки разів, скільки вибрано
-  loop(selected_inversion,
-    min_v = 999; min_idx = -1;
-    i = 0; loop(5, arr_n[i] < min_v ? (min_v = arr_n[i]; min_idx = i;); i += 1;);
-    min_idx != -1 ? arr_n[min_idx] += 12;
-  );
+    selected_inversion == 4 ? (
+      best_inv = 0; min_dist = 9999; best_cog = 60;
+      test_inv = 0;
+      while(test_inv <= 3) (
+        t_arr = 600;
+        t_arr[0] = new_req_n1 != -1 ? new_req_n1 : 999;
+        t_arr[1] = new_req_n2 != -1 ? new_req_n2 : 999;
+        t_arr[2] = new_req_n3 != -1 ? new_req_n3 : 999;
+        t_arr[3] = new_req_n4 != -1 ? new_req_n4 : 999;
+        t_arr[4] = new_req_n5 != -1 ? new_req_n5 : 999;
 
-  // Сортуємо масив, щоб Strum ефект завжди грав від найнижчої за пітчем до найвищої
-  i = 0; loop(4,
-    j = i + 1; loop(4 - i,
-      arr_n[i] > arr_n[j] ? ( t = arr_n[i]; arr_n[i] = arr_n[j]; arr_n[j] = t; );
-      j += 1;
+        v_cnt = 0; loop(5, t_arr[v_cnt] != 999 ? v_cnt += 1;);
+
+        test_inv > 0 ? (
+          loop(test_inv,
+            m_v = 999; m_i = -1;
+            k = 0; loop(5, t_arr[k] < m_v ? (m_v = t_arr[k]; m_i = k;); k += 1;);
+            m_i != -1 ? t_arr[m_i] += 12;
+          );
+        );
+
+        sum = 0; k = 0; loop(5, t_arr[k] != 999 ? sum += t_arr[k]; k += 1;);
+        cog = v_cnt > 0 ? sum / v_cnt : 60;
+
+        dist = abs(cog - last_chord_cog);
+        dist < min_dist ? ( min_dist = dist; best_inv = test_inv; best_cog = cog; );
+        test_inv += 1;
+      );
+      auto_inv_val = best_inv;
     );
-    i += 1;
   );
 
-  new_req_n1 = arr_n[0] != 999 ? arr_n[0] : -1;
-  new_req_n2 = arr_n[1] != 999 ? arr_n[1] : -1;
-  new_req_n3 = arr_n[2] != 999 ? arr_n[2] : -1;
-  new_req_n4 = arr_n[3] != 999 ? arr_n[3] : -1;
-  new_req_n5 = arr_n[4] != 999 ? arr_n[4] : -1;
+  applied_inv = selected_inversion == 4 ? auto_inv_val : selected_inversion;
+
+  applied_inv > 0 ? (
+    arr_n = 500;
+    arr_n[0] = new_req_n1 != -1 ? new_req_n1 : 999;
+    arr_n[1] = new_req_n2 != -1 ? new_req_n2 : 999;
+    arr_n[2] = new_req_n3 != -1 ? new_req_n3 : 999;
+    arr_n[3] = new_req_n4 != -1 ? new_req_n4 : 999;
+    arr_n[4] = new_req_n5 != -1 ? new_req_n5 : 999;
+
+    loop(applied_inv,
+      min_v = 999; min_idx = -1;
+      i = 0; loop(5, arr_n[i] < min_v ? (min_v = arr_n[i]; min_idx = i;); i += 1;);
+      min_idx != -1 ? arr_n[min_idx] += 12;
+    );
+
+    i = 0; loop(4,
+      j = i + 1; loop(4 - i,
+        arr_n[i] > arr_n[j] ? ( t = arr_n[i]; arr_n[i] = arr_n[j]; arr_n[j] = t; );
+        j += 1;
+      );
+      i += 1;
+    );
+
+    new_req_n1 = arr_n[0] != 999 ? arr_n[0] : -1;
+    new_req_n2 = arr_n[1] != 999 ? arr_n[1] : -1;
+    new_req_n3 = arr_n[2] != 999 ? arr_n[2] : -1;
+    new_req_n4 = arr_n[3] != 999 ? arr_n[3] : -1;
+    new_req_n5 = arr_n[4] != 999 ? arr_n[4] : -1;
+  );
+
+  base_changed ? (
+    sum = 0; v_cnt = 0;
+    new_req_n1 != -1 ? (sum += new_req_n1; v_cnt += 1;);
+    new_req_n2 != -1 ? (sum += new_req_n2; v_cnt += 1;);
+    new_req_n3 != -1 ? (sum += new_req_n3; v_cnt += 1;);
+    new_req_n4 != -1 ? (sum += new_req_n4; v_cnt += 1;);
+    new_req_n5 != -1 ? (sum += new_req_n5; v_cnt += 1;);
+    v_cnt > 0 ? (last_chord_cog = sum / v_cnt;);
+  );
 );
 
 // Атомарно оновлюємо глобальні запити нот для аудіо-потоку в самому кінці
