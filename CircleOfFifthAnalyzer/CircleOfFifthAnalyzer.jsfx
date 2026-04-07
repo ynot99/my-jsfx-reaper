@@ -642,11 +642,22 @@ loop(7,
   is_hover = mouse_x >= panel_x && mouse_x <= panel_x + panel_w && mouse_y >= btn_y && mouse_y <= btn_y + btn_h;
   is_down = !show_chord_browser && is_hover && (mouse_cap & 1);
 
+  btn_c_mask = 0;
+  n1 != -1 ? btn_c_mask |= (1 << (n1 % 12)) : 0;
+  n2 != -1 ? btn_c_mask |= (1 << (n2 % 12)) : 0;
+  n3 != -1 ? btn_c_mask |= (1 << (n3 % 12)) : 0;
+  n4 != -1 ? btn_c_mask |= (1 << (n4 % 12)) : 0;
+  n5 != -1 ? btn_c_mask |= (1 << (n5 % 12)) : 0;
+
+  has_usr_btn_match = usr_sel_notes_mask > 0 && ((usr_sel_notes_mask & btn_c_mask) == usr_sel_notes_mask);
+
   is_down ? (
     new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3; new_req_n4 = n4; new_req_n5 = n5;
     gfx_r=0.2; gfx_g=0.6; gfx_b=1.0; gfx_a=0.9;
   ) : is_hover ? (
     gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+  ) : has_usr_btn_match ? (
+    gfx_r=0.2; gfx_g=0.8; gfx_b=0.2; gfx_a=0.85; // Зелений для збігу з вибраними нотами
   ) : (
     gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
   );
@@ -654,6 +665,8 @@ loop(7,
   gfx_rect(panel_x, btn_y, panel_w, btn_h);
 
   gfx_r=0.8; gfx_g=0.8; gfx_b=0.8; gfx_a=1;
+  has_usr_btn_match && !is_down && !is_hover ? ( gfx_r=0; gfx_g=0; gfx_b=0; ); // чорний текст для зручного читання на зеленому тлі
+
   gfx_x = panel_x + 5;
   gfx_y = btn_y + 5;
 
