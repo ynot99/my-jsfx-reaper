@@ -1175,11 +1175,50 @@ show_chord_browser ? (
   gfx_x = cx_btn; gfx_y = cy_btn;
   gfx_drawstr("[ Close ]");
 
+  // Filter Buttons
+  gfx_setfont(1, "Arial", 16);
+  gfx_r=1; gfx_g=1; gfx_b=1;
+  gfx_x = 20; gfx_y = 50;
+  gfx_drawstr("Filter:  ");
+
+  btn_gap = 10;
+
+  // All Button
+  gfx_measurestr("[ All ]", w_b, h_b);
+  is_hov_f0 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 0 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f0 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ All ]");
+  mouse_click && is_hov_f0 ? chord_filter_idx = 0;
+  gfx_x += w_b + btn_gap;
+
+  // Triads Button
+  gfx_measurestr("[ Triads ]", w_b, h_b);
+  is_hov_f1 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 1 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f1 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ Triads ]");
+  mouse_click && is_hov_f1 ? chord_filter_idx = 1;
+  gfx_x += w_b + btn_gap;
+
+  // 7ths/6ths Button
+  gfx_measurestr("[ 7ths / 6ths ]", w_b, h_b);
+  is_hov_f2 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 2 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f2 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ 7ths / 6ths ]");
+  mouse_click && is_hov_f2 ? chord_filter_idx = 2;
+  gfx_x += w_b + btn_gap;
+
+  // Extensions Button
+  gfx_measurestr("[ Extensions (9+) ]", w_b, h_b);
+  is_hov_f3 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 3 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f3 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ Extensions (9+) ]");
+  mouse_click && is_hov_f3 ? chord_filter_idx = 3;
+
   // Draw Chords List
-  gfx_setfont(1, "Arial", 18); // Збільшено розмір шрифту
+  gfx_setfont(1, "Arial", 18);
 
   col_x = 20;
-  col_y = 60;
+  col_y = 80;
   match_cnt = 0;
 
   c_r = 0;
@@ -1219,9 +1258,15 @@ show_chord_browser ? (
       // Якщо в цьому акорді є **усі** ноти, які ми вибрали:
       (real_m & usr_sel_notes_mask) == usr_sel_notes_mask ? (
 
-        // Перевіряємо, чи належать усі ноти цього акорду до поточної обраної тональності
-        chord_in_scl = 1;
-        k2 = 0;
+        pass_filter = 1;
+        chord_filter_idx == 1 && c_t > 5 ? pass_filter = 0; // Only Triads
+        chord_filter_idx == 2 && (c_t <= 5 || c_t > 14) ? pass_filter = 0; // Only 7ths/6ths
+        chord_filter_idx == 3 && c_t <= 14 ? pass_filter = 0; // Only Ext (9+)
+
+        pass_filter ? (
+          // Перевіряємо, чи належать усі ноти цього акорду до поточної обраної тональності
+          chord_in_scl = 1;
+          k2 = 0;
         loop(12,
           (real_m & (1<<k2)) && !is_in_scale(k2, key_root, selected_mode_idx) ? chord_in_scl = 0;
           k2 += 1;
@@ -1255,7 +1300,7 @@ show_chord_browser ? (
             c_k = 0; n_idx = 0;
             loop(12,
               (t_m & (1<<c_k)) ? (
-                 base_n = 48 + play_octave_offset * 12 + c_r + c_k;
+                 base_n = 60 + play_octave_offset * 12 + c_r + c_k;
                  n_idx == 0 ? n1 = base_n :
                  n_idx == 1 ? n2 = base_n :
                  n_idx == 2 ? n3 = base_n :
@@ -1280,10 +1325,11 @@ show_chord_browser ? (
 
         col_y += 24; // Збільшено інтервал між рядками
         col_y > gfx_h - kb_h - 40 ? (
-          col_y = 60;
+          col_y = 80;
           col_x += 150; // Збільшено ширину колонки для кнопок
         );
         match_cnt += 1;
+        ); // End of pass_filter
       );
       c_t += 1;
     );
@@ -1291,8 +1337,8 @@ show_chord_browser ? (
   );
 
   match_cnt == 0 ? (
-    gfx_x = 20; gfx_y = 60;
-    gfx_drawstr("No standard chords found containing these exact notes.");
+    gfx_x = 20; gfx_y = 80;
+    gfx_drawstr("No standard chords found for this filter.");
   );
 );
 
