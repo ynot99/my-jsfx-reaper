@@ -28,9 +28,19 @@ init_done == 0 ? (
   last_chord_cog = 60; // Auto VL base COG (Middle C)
   auto_inv_val = 0;
   prev_base_n1 = -1; prev_base_n2 = -1; prev_base_n3 = -1; prev_base_n4 = -1; prev_base_n5 = -1;
+
+  pal_cnt_mem = 13000;
+  pal_cnt_mem[0] = 0;
+  pal_cnt = 0;
+  pal_r = 10000;
+  pal_t = 11000;
+  pal_m = 12000;
+
   init_done = 1;
 );
 last_mouse_cap = 0;
+
+cbox = 20000; // Buffer for spatial mapping of Find Chords hit boxes
 
 // Масиви для зберігання станів: чи натиснута нота (0-11, де 0 = C)
 notes_held = 300;
@@ -513,7 +523,7 @@ mouse_click ? (
     );
     // Перемикаємо (toggle) стан вибраної ноти
     clicked_pc >= 0 ? usr_sel_notes_mask ~= (1 << clicked_pc);
-  ) : !show_chord_browser ? (
+  ) : !show_chord_browser && !show_palette ? (
     // Перевіряємо кліки по меню "Modes" (у лівому верхньому куті)
   mouse_x >= 10 && mouse_x <= 110 && mouse_y >= 10 && mouse_y <= 150 ? (
     m_idx = floor((mouse_y - 10) / 20);
@@ -539,14 +549,14 @@ mouse_click ? (
     inv_click = floor((mouse_y - 500) / 16);
     inv_click >= 0 && inv_click <= 4 ? ( selected_inversion = inv_click; slider7 = inv_click; slider_automate(slider7); );
   );
-  ); // Close !show_chord_browser condition
+  ); // Close !show_chord_browser && !show_palette condition
 );
 
 mouse_rclick ? (
   // Правий клік по піаніно очищає всі вибрані ноти
   mouse_y >= gfx_h - kb_h ? (
     usr_sel_notes_mask = 0;
-  ) : !show_chord_browser ? (
+  ) : !show_chord_browser && !show_palette ? (
     c_idx = 0;
     loop(12,
       angle = c_idx * (2 * pi / 12) - (pi / 2);
@@ -587,7 +597,7 @@ gfx_drawstr("Octave:  ");
 // Кнопка "<"
 btn_lx = gfx_x;
 gfx_drawstr("<  ");
-mouse_click && !show_chord_browser && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_lx && mouse_x <= btn_lx + 20 ? (
+mouse_click && !show_chord_browser && !show_palette && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_lx && mouse_x <= btn_lx + 20 ? (
   play_octave_offset = max(-3, play_octave_offset - 1);
   slider6 = play_octave_offset; slider_automate(slider6);
 );
@@ -600,7 +610,7 @@ gfx_drawstr("  ");
 // Кнопка ">"
 btn_rx = gfx_x;
 gfx_drawstr(">");
-mouse_click && !show_chord_browser && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_rx && mouse_x <= btn_rx + 20 ? (
+mouse_click && !show_chord_browser && !show_palette && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_rx && mouse_x <= btn_rx + 20 ? (
   play_octave_offset = min(3, play_octave_offset + 1);
   slider6 = play_octave_offset; slider_automate(slider6);
 );
@@ -644,7 +654,7 @@ loop(7,
   );
 
   is_hover = mouse_x >= panel_x && mouse_x <= panel_x + panel_w && mouse_y >= btn_y && mouse_y <= btn_y + btn_h;
-  is_down = !show_chord_browser && is_hover && (mouse_cap & 1);
+  is_down = !show_chord_browser && !show_palette && is_hover && (mouse_cap & 1);
 
   btn_c_mask = 0;
   n1 != -1 ? btn_c_mask |= (1 << (n1 % 12)) : 0;
@@ -836,7 +846,7 @@ loop(12,
   y_maj = cy + sin(angle) * r_maj;
 
   is_hover_maj = pow(mouse_x - x_maj, 2) + pow(mouse_y - y_maj, 2) <= pow(38, 2);
-  is_lclick_maj = !show_chord_browser && (mouse_cap & 1) && is_hover_maj; // Тепер лівий клік для гри
+  is_lclick_maj = !show_chord_browser && !show_palette && (mouse_cap & 1) && is_hover_maj; // Тепер лівий клік для гри
 
   is_lclick_maj ? (
     c_note = pM[i];
@@ -899,7 +909,7 @@ loop(12,
   y_min = cy + sin(angle) * r_min;
 
   is_hover_min = pow(mouse_x - x_min, 2) + pow(mouse_y - y_min, 2) <= pow(35, 2);
-  is_lclick_min = !show_chord_browser && (mouse_cap & 1) && is_hover_min; // Тепер лівий клік для гри
+  is_lclick_min = !show_chord_browser && !show_palette && (mouse_cap & 1) && is_hover_min; // Тепер лівий клік для гри
 
   is_lclick_min ? (
     c_note_m = pMin[i];
@@ -1013,15 +1023,17 @@ current_root >= 0 ? (
 // === КНОПКА PLAY SELECTED ТА FIND CHORDS (Над піаніно) ===
 play_cust_w = 120;
 find_chords_w = 120;
+pal_btn_w = 120;
 play_cust_h = 26;
-total_w = play_cust_w + 10 + find_chords_w;
+total_w = play_cust_w + 10 + find_chords_w + 10 + pal_btn_w;
 play_cust_x = (gfx_w - total_w) / 2;
 find_chords_x = play_cust_x + play_cust_w + 10;
+pal_btn_x = find_chords_x + find_chords_w + 10;
 play_cust_y = gfx_h - kb_h - play_cust_h - 10;
 
 // Кнопка Play Selected
 is_hover_play_cust = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-is_down_play_cust = !show_chord_browser && is_hover_play_cust && (mouse_cap & 1);
+is_down_play_cust = !show_chord_browser && !show_palette && is_hover_play_cust && (mouse_cap & 1);
 
 usr_sel_notes_mask > 0 ? (
   is_down_play_cust ? (
@@ -1065,13 +1077,13 @@ gfx_drawstr("Play Selected");
 
 // Кнопка Find Chords (завжди активна)
 is_hover_find = mouse_x >= find_chords_x && mouse_x <= find_chords_x + find_chords_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-is_click_find = !show_chord_browser && is_hover_find && mouse_click;
+is_click_find = !show_chord_browser && !show_palette && is_hover_find && mouse_click;
 
 is_click_find ? (
   show_chord_browser = 1;
 );
 
-!show_chord_browser && is_hover_find && (mouse_cap & 1) ? (
+!show_chord_browser && !show_palette && is_hover_find && (mouse_cap & 1) ? (
   gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
 ) : is_hover_find ? (
   gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
@@ -1086,6 +1098,30 @@ gfx_measurestr("Find Chords", fc_w, fc_h);
 gfx_x = find_chords_x + (find_chords_w - fc_w) / 2;
 gfx_y = play_cust_y + (play_cust_h - fc_h) / 2;
 gfx_drawstr("Find Chords");
+
+// Кнопка Chord Palette
+is_hover_pal = mouse_x >= pal_btn_x && mouse_x <= pal_btn_x + pal_btn_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_click_pal = !show_chord_browser && !show_palette && is_hover_pal && mouse_click;
+
+is_click_pal ? (
+  show_palette = 1;
+);
+
+!show_chord_browser && !show_palette && is_hover_pal && (mouse_cap & 1) ? (
+  gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+) : is_hover_pal ? (
+  gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+) : (
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+);
+
+gfx_rect(pal_btn_x, play_cust_y, pal_btn_w, play_cust_h);
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+gfx_measurestr("Chord Palette", cp_w, cp_h);
+gfx_x = pal_btn_x + (pal_btn_w - cp_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - cp_h) / 2;
+gfx_drawstr("Chord Palette");
 
 // === ПІАНІНО ===
 kb_y = gfx_h - kb_h;
@@ -1186,11 +1222,21 @@ show_chord_browser ? (
   cx_btn = gfx_w - cw - 20; cy_btn = 20;
 
   is_hov_close = mouse_x >= cx_btn && mouse_x <= cx_btn+cw && mouse_y >= cy_btn && mouse_y <= cy_btn+ch;
-  mouse_click && is_hov_close ? ( show_chord_browser = 0; );
+  mouse_click && is_hov_close ? ( show_chord_browser = 0; mouse_click = 0; );
 
   is_hov_close ? (gfx_r=1; gfx_g=0.4; gfx_b=0.4;) : (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2;);
   gfx_x = cx_btn; gfx_y = cy_btn;
   gfx_drawstr("[ Close ]");
+
+  // To Palette Button
+  gfx_measurestr("[ Go to Palette ]", gp_w, gp_h);
+  gp_btn = cx_btn - gp_w - 20;
+  is_hov_gp = mouse_x >= gp_btn && mouse_x <= gp_btn+gp_w && mouse_y >= cy_btn && mouse_y <= cy_btn+gp_h;
+  mouse_click && is_hov_gp ? ( show_chord_browser = 0; show_palette = 1; mouse_click = 0; );
+
+  is_hov_gp ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
+  gfx_x = gp_btn; gfx_y = cy_btn;
+  gfx_drawstr("[ Go to Palette ]");
 
   // Filter Buttons
   gfx_setfont(1, "Arial", 16);
@@ -1237,6 +1283,7 @@ show_chord_browser ? (
   col_x = 20;
   col_y = 80;
   match_cnt = 0;
+  cbox_cnt = 0; // Number of chords drawn this frame
 
   c_r = 0;
   loop(12,
@@ -1301,6 +1348,19 @@ show_chord_browser ? (
         c_r==6?"F#" : c_r==7?"G" : c_r==8?"G#" :
         c_r==9?"A" : c_r==10?"Bb" : "B";
 
+        is_hov_name = mouse_x >= col_x && mouse_x <= col_x+60 && mouse_y >= col_y && mouse_y <= col_y+18;
+        is_hov_name ? (gfx_r=1; gfx_g=1; gfx_b=1;) : 0;
+
+        // Повністю відокремлюємо логіку кліку від циклу малювання
+        cbox[cbox_cnt * 7 + 0] = col_x;
+        cbox[cbox_cnt * 7 + 1] = col_y;
+        cbox[cbox_cnt * 7 + 2] = 60; // ширина клікабельної зони
+        cbox[cbox_cnt * 7 + 3] = 18; // висота клікабельної зони
+        cbox[cbox_cnt * 7 + 4] = c_r;
+        cbox[cbox_cnt * 7 + 5] = c_t;
+        cbox[cbox_cnt * 7 + 6] = t_m;
+        cbox_cnt += 1;
+
         gfx_drawstr(chord_name_str);
         gfx_drawstr(" ");
         gfx_drawstr(t_n);
@@ -1358,6 +1418,198 @@ show_chord_browser ? (
   match_cnt == 0 ? (
     gfx_x = 20; gfx_y = 80;
     gfx_drawstr("No standard chords found for this filter.");
+  );
+
+  // Перевіряємо кліки на додавання акорду з масиву хітбоксів
+  mouse_click ? (
+    i = 0; hit = 0;
+    while(i < cbox_cnt && !hit) (
+      bx = cbox[i*7+0];
+      by = cbox[i*7+1];
+      bw = cbox[i*7+2];
+      bh = cbox[i*7+3];
+      mouse_x >= bx && mouse_x <= bx+bw && mouse_y >= by && mouse_y <= by+bh ? (
+        // duplicate check
+        is_dup = 0; j = 0;
+        loop(pal_cnt,
+          pal_r[j] == cbox[i*7+4] && pal_t[j] == cbox[i*7+5] ? is_dup = 1;
+          j += 1;
+        );
+
+        !is_dup && pal_cnt < 64 ? (
+          pal_r[pal_cnt] = cbox[i*7+4];
+          pal_t[pal_cnt] = cbox[i*7+5];
+          pal_m[pal_cnt] = cbox[i*7+6];
+          pal_cnt += 1;
+          pal_cnt_mem[0] = pal_cnt;
+        );
+        mouse_click = 0;
+        hit = 1;
+      );
+      i += 1;
+    );
+  );
+
+  // Highlight hovered chord bounding box visually if needed
+  i = 0; hit = 0;
+  while (i < cbox_cnt && !hit) (
+    bx = cbox[i*7+0];
+    by = cbox[i*7+1];
+    bw = cbox[i*7+2];
+    bh = cbox[i*7+3];
+    mouse_x >= bx && mouse_x <= bx+bw && mouse_y >= by && mouse_y <= by+bh ? (
+      gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.2;
+      gfx_rect(bx-2, by-2, bw+4, bh+4);
+      hit = 1;
+    );
+    i += 1;
+  );
+);
+
+// === OVERLAY: CHORD PALETTE ===
+show_palette ? (
+  gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h - kb_h);
+
+  gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;
+  gfx_setfont(1, "Arial", 22, 'b');
+  gfx_x = 20; gfx_y = 20;
+  gfx_drawstr("Chord Palette:");
+
+  // Close Button
+  gfx_setfont(1, "Arial", 16);
+  gfx_measurestr("[ Close ]", cw, ch);
+  cx_btn = gfx_w - cw - 20; cy_btn = 20;
+
+  is_hov_close = mouse_x >= cx_btn && mouse_x <= cx_btn+cw && mouse_y >= cy_btn && mouse_y <= cy_btn+ch;
+  mouse_click && is_hov_close ? ( show_palette = 0; mouse_click = 0; );
+
+  is_hov_close ? (gfx_r=1; gfx_g=0.4; gfx_b=0.4;) : (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2;);
+  gfx_x = cx_btn; gfx_y = cy_btn;
+  gfx_drawstr("[ Close ]");
+
+  // To Find Chords Button
+  gfx_measurestr("[ Go to Find Chords ]", sw_w, sw_h);
+  sw_btn_x = cx_btn - sw_w - 20; sw_btn_y = 20;
+  is_hov_sw = mouse_x >= sw_btn_x && mouse_x <= sw_btn_x+sw_w && mouse_y >= sw_btn_y && mouse_y <= sw_btn_y+sw_h;
+  mouse_click && is_hov_sw ? ( show_palette = 0; show_chord_browser = 1; mouse_click = 0; );
+
+  is_hov_sw ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
+  gfx_x = sw_btn_x; gfx_y = sw_btn_y;
+  gfx_drawstr("[ Go to Find Chords ]");
+
+  // Rendering the inserted chords
+  col_x = 20;
+  col_y = 80;
+  p_idx = 0;
+  del_idx_req = -1;
+  gfx_setfont(1, "Arial", 18);
+  loop(pal_cnt,
+    p_r = pal_r[p_idx];
+    p_t = pal_t[p_idx];
+    p_m = pal_m[p_idx];
+
+    // Decode name
+    p_n_root = p_r==0?"C" : p_r==1?"C#" : p_r==2?"D" :
+               p_r==3?"Eb" : p_r==4?"E" : p_r==5?"F" :
+               p_r==6?"F#" : p_r==7?"G" : p_r==8?"G#" :
+               p_r==9?"A" : p_r==10?"Bb" : "B";
+
+    p_n_type = p_t == 0 ? "Maj" : p_t == 1 ? "m" : p_t == 2 ? "dim" : p_t == 3 ? "aug" :
+               p_t == 4 ? "sus2" : p_t == 5 ? "sus4" : p_t == 6 ? "Maj7" : p_t == 7 ? "m7" :
+               p_t == 8 ? "7" : p_t == 9 ? "m7b5" : p_t == 10 ? "dim7" : p_t == 11 ? "mM7" :
+               p_t == 12 ? "6" : p_t == 13 ? "m6" : p_t == 14 ? "7sus4" : p_t == 15 ? "add9" :
+               p_t == 16 ? "madd9" : p_t == 17 ? "9" : p_t == 18 ? "Maj9" : p_t == 19 ? "m9" :
+               p_t == 20 ? "add11" : p_t == 21 ? "madd11" : "";
+
+    // Зсуваємо маску акорду на p_r циклічно
+    p_real_m = 0;
+    p_k = 0;
+    loop(12,
+      (p_m & (1<<p_k)) ? p_real_m |= (1 << ((p_k + p_r) % 12));
+      p_k += 1;
+    );
+
+    // Перевіряємо, чи належать усі ноти цього акорду до поточної обраної тональності
+    p_in_scl = 1;
+    p_k2 = 0;
+    loop(12,
+      (p_real_m & (1<<p_k2)) && !is_in_scale(p_k2, key_root, selected_mode_idx) ? p_in_scl = 0;
+      p_k2 += 1;
+    );
+
+    // Фарбуємо в жовтий/золотий, якщо акорд у тональності, інакше в блідий сіро-блакитний
+    p_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.6; gfx_g=0.6; gfx_b=0.7;);
+
+    gfx_x = col_x; gfx_y = col_y;
+    gfx_drawstr(p_n_root);
+    gfx_drawstr(" ");
+    gfx_drawstr(p_n_type);
+
+    // Play Button
+    btn_y = col_y;
+    gfx_x = col_x + 90; gfx_y = btn_y;
+    gfx_measurestr("[P]", bw, bh);
+    hov_p = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+    hov_p ? (gfx_r=0.2; gfx_g=1; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+    gfx_drawstr("[P]");
+
+    (mouse_cap & 1) && hov_p ? (
+      n1 = -1; n2 = -1; n3 = -1; n4 = -1; n5 = -1;
+      c_k = 0; n_idx = 0;
+      loop(12,
+        (p_m & (1<<c_k)) ? (
+           base_n = 60 + play_octave_offset * 12 + p_r + c_k;
+           n_idx == 0 ? n1 = base_n :
+           n_idx == 1 ? n2 = base_n :
+           n_idx == 2 ? n3 = base_n :
+           n_idx == 3 ? n4 = base_n :
+           n_idx == 4 ? n5 = base_n : 0;
+           n_idx += 1;
+        );
+        c_k += 1;
+      );
+      new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3; new_req_n4 = n4; new_req_n5 = n5;
+      new_req_vel = 100;
+    );
+
+    // Delete Button [X]
+    gfx_x = col_x + 130; gfx_y = btn_y;
+    gfx_measurestr("[X]", bw_x, bh_x);
+    hov_x = mouse_x >= gfx_x && mouse_x <= gfx_x+bw_x && mouse_y >= gfx_y && mouse_y <= gfx_y+bh_x;
+    hov_x ? (gfx_r=1; gfx_g=0.2; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+    gfx_drawstr("[X]");
+
+    mouse_click && hov_x ? (
+      del_idx_req = p_idx;
+      mouse_click = 0;
+    );
+
+    col_y += 30;
+    col_y > gfx_h - kb_h - 40 ? (
+      col_y = 80;
+      col_x += 160;
+    );
+
+    p_idx += 1;
+  );
+
+  del_idx_req != -1 ? (
+    k = del_idx_req;
+    loop(pal_cnt - del_idx_req - 1,
+      pal_r[k] = pal_r[k+1];
+      pal_t[k] = pal_t[k+1];
+      pal_m[k] = pal_m[k+1];
+      k += 1;
+    );
+    pal_cnt -= 1;
+    pal_cnt_mem[0] = pal_cnt;
+  );
+
+  pal_cnt == 0 ? (
+    gfx_x = 20; gfx_y = 80;
+    gfx_r = 0.5; gfx_g = 0.5; gfx_b = 0.5;
+    gfx_drawstr("Palette is empty. Add chords from 'Find Chords'.");
   );
 );
 
