@@ -21,6 +21,8 @@ init_done == 0 ? (
   strum_step = 5;          // Стан таймера струму (5 = неактивно)
   usr_sel_notes_mask = 0;  // 12-бітня маска для кастомних вибраних нот на піаніно
   play_octave_offset = 0;  // Зміщення октави (-3 до +3)
+  actual_notes_held = 400; // Allocating memory block to prevent overlap with pM/pMin
+  idx = 0; loop(128, actual_notes_held[idx] = 0; idx += 1);
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -89,7 +91,8 @@ function draw_chord_ext(type) (
   type == 12 ? gfx_drawstr("9") :
   type == 13 ? gfx_drawstr("maj11") :
   type == 14 ? gfx_drawstr("m11") :
-  type == 15 ? gfx_drawstr("11") : 0;
+      type == 16 ? gfx_drawstr("6") :
+      type == 17 ? gfx_drawstr("m6") : 0;
 );
 
 function draw_mode_name(idx) (
@@ -234,11 +237,14 @@ while(midirecv(offset, msg1, msg2, msg3)) (
   // Note On
   status == 144 && vel > 0 ? (
     notes_held[note] += 1;
+    actual_notes_held[msg2] += 1;
       ) :
       // Note Off
       status == 128 || (status == 144 && vel == 0) ? (
         notes_held[note] -= 1;
         notes_held[note] < 0 ? notes_held[note] = 0;
+        actual_notes_held[msg2] -= 1;
+        actual_notes_held[msg2] < 0 ? actual_notes_held[msg2] = 0;
       );
 
       // Пропускаємо MIDI далі по ланцюжку треку
@@ -310,6 +316,10 @@ current_root = -1;
 current_type = -1;
 current_btype = -1;
 
+lowest_note_pc = -1;
+b_idx = 0;
+loop(128, actual_notes_held[b_idx] > 0 ? (lowest_note_pc = b_idx % 12; b_idx = 129;); b_idx += 1;);
+
 match_score = 0;
 r = 0;
 loop(12,
@@ -321,57 +331,62 @@ loop(12,
   h5b = notes_held[(r+6)%12] > 0;
   h5  = notes_held[(r+7)%12] > 0;
   h5s = notes_held[(r+8)%12] > 0;
+  h6  = notes_held[(r+9)%12] > 0;
   h7b = notes_held[(r+10)%12] > 0;
   h7  = notes_held[(r+11)%12] > 0;
+
+  bass_bonus = (r == lowest_note_pc) ? 50 : 0;
 
   h1 ? (
     // 5 (Power chord: 1, 5)
     h5 && !h3 && !h3b ? (
-      match_score < 2 ? ( match_score = 2; current_root = r; current_type = 6; current_btype = 0; );
+      match_score < 2 + bass_bonus ? ( match_score = 2 + bass_bonus; current_root = r; current_type = 6; current_btype = 0; );
     );
 
     // Sus2 (1, 2, 5)
     h2 && h5 ? (
-      match_score < 3 ? ( match_score = 3; current_root = r; current_type = 4; current_btype = 0; );
+      match_score < 3 + bass_bonus ? ( match_score = 3 + bass_bonus; current_root = r; current_type = 4; current_btype = 0; );
     );
 
     // Sus4 (1, 4, 5)
     h4 && h5 ? (
-      match_score < 3 ? ( match_score = 3; current_root = r; current_type = 5; current_btype = 0; );
+      match_score < 3 + bass_bonus ? ( match_score = 3 + bass_bonus; current_root = r; current_type = 5; current_btype = 0; );
     );
 
     // Dim (1, b3, b5)
     h3b && h5b ? (
-      match_score < 4 ? ( match_score = 4; current_root = r; current_type = 2; current_btype = 1; );
+      match_score < 4 + bass_bonus ? ( match_score = 4 + bass_bonus; current_root = r; current_type = 2; current_btype = 1; );
     );
 
     // Aug (1, 3, #5)
     h3 && h5s ? (
-      match_score < 4 ? ( match_score = 4; current_root = r; current_type = 3; current_btype = 0; );
+      match_score < 4 + bass_bonus ? ( match_score = 4 + bass_bonus; current_root = r; current_type = 3; current_btype = 0; );
     );
 
     // Min (allows omitting 5th if 7th is present)
     h3b && (h5 || h7b || h7) ? (
-      match_score < 5 ? ( match_score = 5; current_root = r; current_type = 1; current_btype = 1; );
+      match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 1; current_btype = 1; );
       h7b ? (
-        h4 ? ( match_score < 8 ? ( match_score = 8; current_root = r; current_type = 14; current_btype = 1; ) : 0; ) :
-        h2 ? ( match_score < 7 ? ( match_score = 7; current_root = r; current_type = 11; current_btype = 1; ) : 0; ) :
-        ( match_score < 6 ? ( match_score = 6; current_root = r; current_type = 8; current_btype = 1; ) : 0; );
+        h4 ? ( match_score < 8 + bass_bonus ? ( match_score = 8 + bass_bonus; current_root = r; current_type = 14; current_btype = 1; ) : 0; ) :
+        h2 ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 11; current_btype = 1; ) : 0; ) :
+        ( match_score < 6 + bass_bonus ? ( match_score = 6 + bass_bonus; current_root = r; current_type = 8; current_btype = 1; ) : 0; );
       ) : 0;
+      h6 ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 17; current_btype = 1; ) : 0; ) : 0;
     );
 
     // Maj / Dom (allows omitting 5th if 7th is present)
     h3 && (h5 || h7b || h7) ? (
-      match_score < 5 ? ( match_score = 5; current_root = r; current_type = 0; current_btype = 0; );
+      match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 0; current_btype = 0; );
       h7 ? (
-        h4 ? ( match_score < 8 ? ( match_score = 8; current_root = r; current_type = 13; current_btype = 0; ) : 0; ) :
-        h2 ? ( match_score < 7 ? ( match_score = 7; current_root = r; current_type = 10; current_btype = 0; ) : 0; ) :
-        ( match_score < 6 ? ( match_score = 6; current_root = r; current_type = 7; current_btype = 0; ) : 0; );
+        h4 ? ( match_score < 8 + bass_bonus ? ( match_score = 8 + bass_bonus; current_root = r; current_type = 13; current_btype = 0; ) : 0; ) :
+        h2 ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 10; current_btype = 0; ) : 0; ) :
+        ( match_score < 6 + bass_bonus ? ( match_score = 6 + bass_bonus; current_root = r; current_type = 7; current_btype = 0; ) : 0; );
       ) : 0;
+      h6 ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 16; current_btype = 0; ) : 0; ) : 0;
       h7b ? (
-        h4 ? ( match_score < 8 ? ( match_score = 8; current_root = r; current_type = 15; current_btype = 0; ) : 0; ) :
-        h2 ? ( match_score < 7 ? ( match_score = 7; current_root = r; current_type = 12; current_btype = 0; ) : 0; ) :
-        ( match_score < 6 ? ( match_score = 6; current_root = r; current_type = 9; current_btype = 0; ) : 0; );
+        h4 ? ( match_score < 8 + bass_bonus ? ( match_score = 8 + bass_bonus; current_root = r; current_type = 15; current_btype = 0; ) : 0; ) :
+        h2 ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 12; current_btype = 0; ) : 0; ) :
+        ( match_score < 6 + bass_bonus ? ( match_score = 6 + bass_bonus; current_root = r; current_type = 9; current_btype = 0; ) : 0; );
       ) : 0;
     );
   );
@@ -1064,7 +1079,7 @@ show_chord_browser ? (
   c_r = 0;
   loop(12,
     c_t = 0;
-    loop(11,
+    loop(20,
       // Будуємо маски різних типів акордів відносно "до" (0)
       c_t == 0  ? ( t_m = (1<<0)|(1<<4)|(1<<7);           t_n="Maj"; ) :
       c_t == 1  ? ( t_m = (1<<0)|(1<<3)|(1<<7);           t_n="m"; ) :
@@ -1076,7 +1091,16 @@ show_chord_browser ? (
       c_t == 7  ? ( t_m = (1<<0)|(1<<3)|(1<<7)|(1<<10);   t_n="m7"; ) :
       c_t == 8  ? ( t_m = (1<<0)|(1<<4)|(1<<7)|(1<<10);   t_n="7"; ) :
       c_t == 9  ? ( t_m = (1<<0)|(1<<3)|(1<<6)|(1<<10);   t_n="m7b5"; ) :
-      c_t == 10 ? ( t_m = (1<<0)|(1<<3)|(1<<6)|(1<<9);    t_n="dim7"; ) : 0;
+      c_t == 10 ? ( t_m = (1<<0)|(1<<3)|(1<<6)|(1<<9);    t_n="dim7"; ) :
+      c_t == 11 ? ( t_m = (1<<0)|(1<<3)|(1<<7)|(1<<11);   t_n="mM7"; ) :
+      c_t == 12 ? ( t_m = (1<<0)|(1<<4)|(1<<7)|(1<<9);    t_n="6"; ) :
+      c_t == 13 ? ( t_m = (1<<0)|(1<<3)|(1<<7)|(1<<9);    t_n="m6"; ) :
+      c_t == 14 ? ( t_m = (1<<0)|(1<<5)|(1<<7)|(1<<10);   t_n="7sus4"; ) :
+      c_t == 15 ? ( t_m = (1<<0)|(1<<2)|(1<<4)|(1<<7);    t_n="add9"; ) :
+      c_t == 16 ? ( t_m = (1<<0)|(1<<2)|(1<<3)|(1<<7);    t_n="madd9"; ) :
+      c_t == 17 ? ( t_m = (1<<0)|(1<<2)|(1<<4)|(1<<7)|(1<<10); t_n="9"; ) :
+      c_t == 18 ? ( t_m = (1<<0)|(1<<2)|(1<<4)|(1<<7)|(1<<11); t_n="Maj9"; ) :
+      c_t == 19 ? ( t_m = (1<<0)|(1<<2)|(1<<3)|(1<<7)|(1<<10); t_n="m9"; ) : 0;
 
       // Зсуваємо маску акорду на c_r циклічно
       real_m = 0;
@@ -1124,8 +1148,8 @@ show_chord_browser ? (
             n1 = -1; n2 = -1; n3 = -1; n4 = -1; n5 = -1;
             c_k = 0; n_idx = 0;
             loop(12,
-              (real_m & (1<<c_k)) ? (
-                 base_n = 48 + play_octave_offset * 12 + c_k;
+              (t_m & (1<<c_k)) ? (
+                 base_n = 48 + play_octave_offset * 12 + c_r + c_k;
                  n_idx == 0 ? n1 = base_n :
                  n_idx == 1 ? n2 = base_n :
                  n_idx == 2 ? n3 = base_n :
