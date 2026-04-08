@@ -522,7 +522,10 @@ mouse_click ? (
       );
     );
     // Перемикаємо (toggle) стан вибраної ноти
-    clicked_pc >= 0 ? usr_sel_notes_mask ~= (1 << clicked_pc);
+    clicked_pc >= 0 ? (
+      usr_sel_notes_mask ~= (1 << clicked_pc);
+      auto_play_timer = 15; // Граємо ноти ~пів секунди при зміні
+    );
   ) : !show_chord_browser && !show_palette ? (
     // Перевіряємо кліки по меню "Modes" (у лівому верхньому куті)
   mouse_x >= 10 && mouse_x <= 110 && mouse_y >= 10 && mouse_y <= 150 ? (
@@ -616,6 +619,7 @@ mouse_click && !show_chord_browser && !show_palette && mouse_y >= oct_y && mouse
 );
 
 new_req_n1 = -1; new_req_n2 = -1; new_req_n3 = -1; new_req_n4 = -1; new_req_n5 = -1;
+new_req_vel = 100;
 
 d_idx = 0;
 loop(7,
@@ -1035,9 +1039,15 @@ play_cust_y = gfx_h - kb_h - play_cust_h - 10;
 is_hover_play_cust = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
 is_down_play_cust = !show_chord_browser && !show_palette && is_hover_play_cust && (mouse_cap & 1);
 
+auto_play_timer > 0 ? auto_play_timer -= 1;
+
 usr_sel_notes_mask > 0 ? (
-  is_down_play_cust ? (
-    gfx_r=0.2; gfx_g=0.6; gfx_b=0.2; gfx_a=0.9;
+  (is_down_play_cust || auto_play_timer > 0) ? (
+    is_down_play_cust ? (
+      gfx_r=0.2; gfx_g=0.6; gfx_b=0.2; gfx_a=0.9;
+    ) : (
+      gfx_r=0.2; gfx_g=0.4; gfx_b=0.2; gfx_a=0.9;
+    );
     c_idx_p = 0; n_count = 0;
     loop(12,
       (usr_sel_notes_mask & (1 << c_idx_p)) ? (
