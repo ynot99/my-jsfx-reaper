@@ -1362,13 +1362,14 @@ show_chord_browser ? (
         is_hov_name ? (gfx_r=1; gfx_g=1; gfx_b=1;) : 0;
 
         // Повністю відокремлюємо логіку кліку від циклу малювання
-        cbox[cbox_cnt * 7 + 0] = col_x;
-        cbox[cbox_cnt * 7 + 1] = col_y;
-        cbox[cbox_cnt * 7 + 2] = 60; // ширина клікабельної зони
-        cbox[cbox_cnt * 7 + 3] = 18; // висота клікабельної зони
-        cbox[cbox_cnt * 7 + 4] = c_r;
-        cbox[cbox_cnt * 7 + 5] = c_t;
-        cbox[cbox_cnt * 7 + 6] = t_m;
+        cbox[cbox_cnt * 8 + 0] = col_x;
+        cbox[cbox_cnt * 8 + 1] = col_y;
+        cbox[cbox_cnt * 8 + 2] = 60; // ширина клікабельної зони
+        cbox[cbox_cnt * 8 + 3] = 18; // висота клікабельної зони
+        cbox[cbox_cnt * 8 + 4] = c_r;
+        cbox[cbox_cnt * 8 + 5] = c_t;
+        cbox[cbox_cnt * 8 + 6] = t_m;
+        cbox[cbox_cnt * 8 + 7] = real_m;
         cbox_cnt += 1;
 
         gfx_drawstr(chord_name_str);
@@ -1408,9 +1409,7 @@ show_chord_browser ? (
         hov_s = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
         hov_s ? (gfx_r=0.2; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
         gfx_drawstr("[+]");
-        mouse_click && hov_s ? (
-            usr_sel_notes_mask = real_m;
-        );
+        // Логіку додавання до палітри перенесено в низ циклу щоб уникнути багів відмальовки
 
         col_y += 24; // Збільшено інтервал між рядками
         col_y > gfx_h - kb_h - 40 ? (
@@ -1434,27 +1433,42 @@ show_chord_browser ? (
   mouse_click ? (
     i = 0; hit = 0;
     while(i < cbox_cnt && !hit) (
-      bx = cbox[i*7+0];
-      by = cbox[i*7+1];
-      bw = cbox[i*7+2];
-      bh = cbox[i*7+3];
-      mouse_x >= bx && mouse_x <= bx+bw && mouse_y >= by && mouse_y <= by+bh ? (
-        // duplicate check
-        is_dup = 0; j = 0;
-        loop(pal_cnt,
-          pal_r[j] == cbox[i*7+4] && pal_t[j] == cbox[i*7+5] ? is_dup = 1;
-          j += 1;
-        );
+      bx = cbox[i*8+0];
+      by = cbox[i*8+1];
+      bw_n = 60; // Name box width
+      bh_n = 18; // Name box height
 
-        !is_dup && pal_cnt < 64 ? (
-          pal_r[pal_cnt] = cbox[i*7+4];
-          pal_t[pal_cnt] = cbox[i*7+5];
-          pal_m[pal_cnt] = cbox[i*7+6];
-          pal_cnt += 1;
-          pal_cnt_mem[0] = pal_cnt;
-        );
+      // Name Box -> Send to piano
+      mouse_x >= bx && mouse_x <= bx+bw_n && mouse_y >= by && mouse_y <= by+bh_n ? (
+        usr_sel_notes_mask = cbox[i*8+7];
+        auto_play_timer = 15;
         mouse_click = 0;
         hit = 1;
+      ) :
+      // [+] Box -> Add to palette
+      (
+        abx = bx + 105;
+        aby = by;
+        abw = 26; // Approx width of "[+]"
+        abh = 18;
+        mouse_x >= abx && mouse_x <= abx+abw && mouse_y >= aby && mouse_y <= aby+abh ? (
+          // duplicate check
+          is_dup = 0; j = 0;
+          loop(pal_cnt,
+            pal_r[j] == cbox[i*8+4] && pal_t[j] == cbox[i*8+5] ? is_dup = 1;
+            j += 1;
+          );
+
+          !is_dup && pal_cnt < 64 ? (
+            pal_r[pal_cnt] = cbox[i*8+4];
+            pal_t[pal_cnt] = cbox[i*8+5];
+            pal_m[pal_cnt] = cbox[i*8+6];
+            pal_cnt += 1;
+            pal_cnt_mem[0] = pal_cnt;
+          );
+          mouse_click = 0;
+          hit = 1;
+        );
       );
       i += 1;
     );
@@ -1463,13 +1477,13 @@ show_chord_browser ? (
   // Highlight hovered chord bounding box visually if needed
   i = 0; hit = 0;
   while (i < cbox_cnt && !hit) (
-    bx = cbox[i*7+0];
-    by = cbox[i*7+1];
-    bw = cbox[i*7+2];
-    bh = cbox[i*7+3];
-    mouse_x >= bx && mouse_x <= bx+bw && mouse_y >= by && mouse_y <= by+bh ? (
+    bx = cbox[i*8+0];
+    by = cbox[i*8+1];
+    bw_n = 60;
+    bh_n = 18;
+    mouse_x >= bx && mouse_x <= bx+bw_n && mouse_y >= by && mouse_y <= by+bh_n ? (
       gfx_r = 1; gfx_g = 1; gfx_b = 1; gfx_a = 0.2;
-      gfx_rect(bx-2, by-2, bw+4, bh+4);
+      gfx_rect(bx-2, by-2, bw_n+4, bh_n+4);
       hit = 1;
     );
     i += 1;
@@ -1552,6 +1566,24 @@ show_palette ? (
     p_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.6; gfx_g=0.6; gfx_b=0.7;);
 
     gfx_x = col_x; gfx_y = col_y;
+
+    // Name Click Hit Test
+    hov_pal_name = mouse_x >= col_x && mouse_x <= col_x + 60 && mouse_y >= col_y && mouse_y <= col_y + 18;
+    hov_pal_name ? (
+      gfx_r = 1; gfx_g = 1; gfx_b = 1;
+
+      // Draw semi-transparent background box like in Find Chords
+      gfx_a = 0.2;
+      gfx_rect(col_x-2, col_y-2, 64, 22);
+      gfx_a = 1; // Restore alpha for text drawing
+
+      mouse_click ? (
+        usr_sel_notes_mask = p_real_m;
+        auto_play_timer = 15;
+        mouse_click = 0;
+      );
+    );
+
     gfx_drawstr(p_n_root);
     gfx_drawstr(" ");
     gfx_drawstr(p_n_type);
