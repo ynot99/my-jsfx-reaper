@@ -1286,6 +1286,14 @@ show_chord_browser ? (
   chord_filter_idx == 3 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f3 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
   gfx_drawstr("[ Extensions (9+) ]");
   mouse_click && is_hov_f3 ? chord_filter_idx = 3;
+  gfx_x += w_b + btn_gap;
+
+  // In Scale Only Button
+  gfx_measurestr("[ In Scale Only ]", w_b, h_b);
+  is_hov_scl = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_in_scale == 1 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_scl ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ In Scale Only ]");
+  mouse_click && is_hov_scl ? ( chord_filter_in_scale = chord_filter_in_scale == 1 ? 0 : 1; mouse_click = 0; );
 
   // Draw Chords List
   gfx_setfont(1, "Arial", 18);
@@ -1339,14 +1347,17 @@ show_chord_browser ? (
         chord_filter_idx == 2 && (c_t <= 5 || c_t > 14) ? pass_filter = 0; // Only 7ths/6ths
         chord_filter_idx == 3 && c_t <= 14 ? pass_filter = 0; // Only Ext (9+)
 
-        pass_filter ? (
-          // Перевіряємо, чи належать усі ноти цього акорду до поточної обраної тональності
-          chord_in_scl = 1;
-          k2 = 0;
+        // Перевіряємо, чи належать усі ноти цього акорду до поточної обраної тональності
+        chord_in_scl = 1;
+        k2 = 0;
         loop(12,
           (real_m & (1<<k2)) && !is_in_scale(k2, key_root, selected_mode_idx) ? chord_in_scl = 0;
           k2 += 1;
         );
+
+        chord_filter_in_scale == 1 && !chord_in_scl ? pass_filter = 0;
+
+        pass_filter ? (
 
         // Фарбуємо в жовтий/золотий, якщо акорд у тональності, інакше в блідий сіро-блакитний
         chord_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.6; gfx_g=0.6; gfx_b=0.7;);
@@ -1522,6 +1533,53 @@ show_palette ? (
   gfx_x = sw_btn_x; gfx_y = sw_btn_y;
   gfx_drawstr("[ Go to Find Chords ]");
 
+  // === Palette Filter Bar ===
+  gfx_setfont(1, "Arial", 16);
+  gfx_r=1; gfx_g=1; gfx_b=1;
+  gfx_x = 20; gfx_y = 50;
+  gfx_drawstr("Filter:  ");
+
+  btn_gap = 10;
+
+  // All Button
+  gfx_measurestr("[ All ]", w_b, h_b);
+  is_hov_f0 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 0 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f0 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ All ]");
+  mouse_click && is_hov_f0 ? chord_filter_idx = 0;
+  gfx_x += w_b + btn_gap;
+
+  // Triads Button
+  gfx_measurestr("[ Triads ]", w_b, h_b);
+  is_hov_f1 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 1 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f1 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ Triads ]");
+  mouse_click && is_hov_f1 ? chord_filter_idx = 1;
+  gfx_x += w_b + btn_gap;
+
+  // 7ths/6ths Button
+  gfx_measurestr("[ 7ths / 6ths ]", w_b, h_b);
+  is_hov_f2 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 2 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f2 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ 7ths / 6ths ]");
+  mouse_click && is_hov_f2 ? chord_filter_idx = 2;
+  gfx_x += w_b + btn_gap;
+
+  // Extensions Button
+  gfx_measurestr("[ Extensions (9+) ]", w_b, h_b);
+  is_hov_f3 = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_idx == 3 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_f3 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ Extensions (9+) ]");
+  mouse_click && is_hov_f3 ? chord_filter_idx = 3;
+  gfx_x += w_b + btn_gap;
+
+  // In Scale Only Button
+  gfx_measurestr("[ In Scale Only ]", w_b, h_b);
+  is_hov_scl = mouse_x >= gfx_x && mouse_x <= gfx_x+w_b && mouse_y >= gfx_y && mouse_y <= gfx_y+h_b;
+  chord_filter_in_scale == 1 ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : is_hov_scl ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ In Scale Only ]");
+  mouse_click && is_hov_scl ? ( chord_filter_in_scale = chord_filter_in_scale == 1 ? 0 : 1; mouse_click = 0; );
+
   // Rendering the inserted chords
   col_x = 20;
   col_y = 80;
@@ -1562,8 +1620,19 @@ show_palette ? (
       p_k2 += 1;
     );
 
-    // Фарбуємо в жовтий/золотий, якщо акорд у тональності, інакше в блідий сіро-блакитний
-    p_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.6; gfx_g=0.6; gfx_b=0.7;);
+    // Filter Logic
+    p_t_len = 0;
+    p_t <= 5 ? p_t_len = 3 : p_t <= 14 ? p_t_len = 4 : p_t_len = 5;
+
+    pass_filter = 1;
+    chord_filter_idx == 1 && p_t_len > 3 ? pass_filter = 0; // Only Triads
+    chord_filter_idx == 2 && p_t_len != 4 ? pass_filter = 0; // Only 7ths/6ths
+    chord_filter_idx == 3 && p_t_len < 5 ? pass_filter = 0; // Only Ext (9+)
+    chord_filter_in_scale == 1 && !p_in_scl ? pass_filter = 0;
+
+    pass_filter ? (
+      // Фарбуємо в жовтий/золотий, якщо акорд у тональності, інакше в блідий сіро-блакитний
+      p_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.6; gfx_g=0.6; gfx_b=0.7;);
 
     gfx_x = col_x; gfx_y = col_y;
 
@@ -1632,6 +1701,7 @@ show_palette ? (
       col_y = 80;
       col_x += 160;
     );
+    ); // close pass_filter
 
     p_idx += 1;
   );
