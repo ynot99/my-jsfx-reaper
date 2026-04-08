@@ -36,6 +36,8 @@ init_done == 0 ? (
   pal_t = 11000;
   pal_m = 12000;
 
+  auto_play_enabled = 1;
+
   init_done = 1;
 );
 last_mouse_cap = 0;
@@ -497,17 +499,10 @@ mouse_rclick = (mouse_cap & 2) && !(last_mouse_cap & 2);
 mouse_mclick = (mouse_cap & 64) && !(last_mouse_cap & 64);
 last_mouse_cap = mouse_cap;
 
-// Якщо затиснута ліва кнопка миші над піаніно - постійно граємо поточний виділений акорд
-(mouse_cap & 1) ? (
-  mouse_y >= gfx_h - kb_h ? (
-    auto_play_timer = max(auto_play_timer, 2);
-  );
-);
-
-(mouse_click + mouse_rclick + mouse_mclick) > 0 ? (
-  mouse_y >= gfx_h - kb_h ? (
+// Завжди вираховуємо над якою нотою миша
+hovered_pc = -1;
+mouse_y >= gfx_h - kb_h ? (
   w_keys = 14; w_w = gfx_w / w_keys; bk_w = w_w * 0.6; bk_h_actual = kb_h * 0.6;
-  clicked_pc = -1;
   // Шукаємо клік по чорній клавіші (вони перекривають білі)
   bk_idx = 0;
   loop(w_keys - 1,
@@ -515,36 +510,45 @@ last_mouse_cap = mouse_cap;
     m != 2 && m != 6 ? (
       krx = bk_idx * w_w + w_w - bk_w/2;
       mouse_x >= krx && mouse_x <= krx + bk_w && mouse_y <= gfx_h - kb_h + bk_h_actual ? (
-        clicked_pc = (m==0)*1 + (m==1)*3 + (m==3)*6 + (m==4)*8 + (m==5)*10;
+        hovered_pc = (m==0)*1 + (m==1)*3 + (m==3)*6 + (m==4)*8 + (m==5)*10;
       );
     );
     bk_idx += 1;
   );
   // Якщо не знайшли чорну, шукаємо білу
-  clicked_pc < 0 ? (
+  hovered_pc < 0 ? (
     wk_idx = floor(mouse_x / w_w);
     wk_idx >= 0 && wk_idx < w_keys ? (
       m = wk_idx % 7;
-      clicked_pc = (m==0)*0 + (m==1)*2 + (m==2)*4 + (m==3)*5 + (m==4)*7 + (m==5)*9 + (m==6)*11;
+      hovered_pc = (m==0)*0 + (m==1)*2 + (m==2)*4 + (m==3)*5 + (m==4)*7 + (m==5)*9 + (m==6)*11;
     );
   );
+);
 
-  mouse_click && clicked_pc >= 0 ? (
-    // Лівий клік - ми не додаємо ноти, тільки граємо акорд.
-    // Завдяки перевірці (mouse_cap & 1) вище, він буде грати рівно стільки, скільки ви тримаєте кнопку.
+// Якщо затиснута ліва кнопка миші над піаніно - постійно граємо
+(mouse_cap & 1) ? (
+  hovered_pc >= 0 ? (
     auto_play_timer = max(auto_play_timer, 2);
   );
+);
 
-  mouse_rclick && clicked_pc >= 0 ? (
-    // Правий клік - перемикає/додає ноту в поточну маску
-    usr_sel_notes_mask ~= (1 << clicked_pc);
-    auto_play_timer = 15;
-  );
+(mouse_click + mouse_rclick + mouse_mclick) > 0 ? (
+  mouse_y >= gfx_h - kb_h ? (
+    mouse_click && hovered_pc >= 0 ? (
+      // Лівий клік - ми не додаємо ноти, тільки граємо
+      auto_play_timer = max(auto_play_timer, 2);
+    );
 
-  mouse_mclick ? (
-    // Середній клік - чистить виділення
-    usr_sel_notes_mask = 0;
-  );
+    mouse_rclick && hovered_pc >= 0 ? (
+      // Правий клік - перемикає/додає ноту в поточну маску
+      usr_sel_notes_mask ~= (1 << hovered_pc);
+      auto_play_enabled ? auto_play_timer = 15 : 0;
+    );
+
+    mouse_mclick ? (
+      // Середній клік - чистить виділення
+      usr_sel_notes_mask = 0;
+    );
 
   // Скидаємо прапорці кліку, щоб не спрацювала логіка нижче для цих же координат екрану
   mouse_click = 0;
@@ -1051,64 +1055,100 @@ current_root >= 0 ? (
 
 // === КНОПКА PLAY SELECTED ТА FIND CHORDS (Над піаніно) ===
 play_cust_w = 120;
+play_single_w = 120;
 find_chords_w = 120;
 pal_btn_w = 120;
 play_cust_h = 26;
-total_w = play_cust_w + 10 + find_chords_w + 10 + pal_btn_w;
+total_w = play_cust_w + 10 + play_single_w + 10 + find_chords_w + 10 + pal_btn_w;
 play_cust_x = (gfx_w - total_w) / 2;
-find_chords_x = play_cust_x + play_cust_w + 10;
+play_single_x = play_cust_x + play_cust_w + 10;
+find_chords_x = play_single_x + play_single_w + 10;
 pal_btn_x = find_chords_x + find_chords_w + 10;
 play_cust_y = gfx_h - kb_h - play_cust_h - 10;
 
-// Кнопка Play Selected
-is_hover_play_cust = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-is_down_play_cust = !show_chord_browser && !show_palette && is_hover_play_cust && (mouse_cap & 1);
+// Кнопка Auto Play
+is_hover_auto_play = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+!show_chord_browser && !show_palette && is_hover_auto_play && mouse_click ? (
+  auto_play_enabled = auto_play_enabled == 1 ? 0 : 1;
+  mouse_click = 0;
+);
+
+// Кнопка Single Note
+is_hover_single = mouse_x >= play_single_x && mouse_x <= play_single_x + play_single_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+!show_chord_browser && !show_palette && is_hover_single && mouse_click ? (
+  play_single_note_mode = play_single_note_mode == 1 ? 0 : 1;
+  mouse_click = 0;
+);
 
 auto_play_timer > 0 ? auto_play_timer -= 1;
 
-usr_sel_notes_mask > 0 ? (
-  (is_down_play_cust || auto_play_timer > 0) ? (
-    is_down_play_cust ? (
-      gfx_r=0.2; gfx_g=0.6; gfx_b=0.2; gfx_a=0.9;
-    ) : (
-      gfx_r=0.2; gfx_g=0.4; gfx_b=0.2; gfx_a=0.9;
-    );
-    c_idx_p = 0; n_count = 0;
-    loop(12,
-      (usr_sel_notes_mask & (1 << c_idx_p)) ? (
-        n_val = 60 + (play_octave_offset * 12) + c_idx_p;
+auto_play_mask = usr_sel_notes_mask;
+// Якщо лівий клік на піаніно в режимі "Single Note", гратимемо тільки маску натиснутої ноти
+(mouse_cap & 1) && play_single_note_mode == 1 && hovered_pc >= 0 ? (
+  auto_play_mask = (1 << hovered_pc);
+);
 
-        // Зберігаємо перші 5 вибраних нот (движок підтримує до 5 одночасних голосів)
-        n_count == 0 ? new_req_n1 = n_val :
-        n_count == 1 ? new_req_n2 = n_val :
-        n_count == 2 ? new_req_n3 = n_val :
-        n_count == 3 ? new_req_n4 = n_val :
-        n_count == 4 ? new_req_n5 = n_val;
+auto_play_mask > 0 && auto_play_timer > 0 ? (
+  c_idx_p = 0; n_count = 0;
+  loop(12,
+    (auto_play_mask & (1 << c_idx_p)) ? (
+      n_val = 60 + (play_octave_offset * 12) + c_idx_p;
 
-        n_count += 1;
-      );
-      c_idx_p += 1;
+      // Зберігаємо перші 5 вибраних нот (движок підтримує до 5 одночасних голосів)
+      n_count == 0 ? new_req_n1 = n_val :
+      n_count == 1 ? new_req_n2 = n_val :
+      n_count == 2 ? new_req_n3 = n_val :
+      n_count == 3 ? new_req_n4 = n_val :
+      n_count == 4 ? new_req_n5 = n_val;
+
+      n_count += 1;
     );
-  ) : is_hover_play_cust ? (
-    gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
-  ) : (
-    gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+    c_idx_p += 1;
   );
-  text_col = 0.9;
+);
+
+auto_play_enabled == 1 ? (
+  is_hover_auto_play ? (gfx_r=0.2; gfx_g=0.6; gfx_b=0.2; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.45; gfx_b=0.15; gfx_a=1;);
 ) : (
-  // Якщо немає вибраних нот - малюємо тьмяно
-  gfx_r=0.1; gfx_g=0.1; gfx_b=0.1; gfx_a=1;
-  text_col = 0.4;
+  is_hover_auto_play ? (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;);
 );
 
 gfx_rect(play_cust_x, play_cust_y, play_cust_w, play_cust_h);
 
+// Рендер кнопки Single Note Mode
+play_single_note_mode == 1 ? (
+  is_hover_single ? (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.45; gfx_b=0.65; gfx_a=1;);
+) : (
+  is_hover_single ? (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;);
+);
+gfx_rect(play_single_x, play_cust_y, play_single_w, play_cust_h);
+
 gfx_setfont(1, "Arial", 14);
-gfx_r=text_col; gfx_g=text_col; gfx_b=text_col; gfx_a=1;
-gfx_measurestr("Play Selected", psc_w, psc_h);
-gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
-gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
-gfx_drawstr("Play Selected");
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+auto_play_enabled == 1 ? (
+  gfx_measurestr("Auto-Play: ON", psc_w, psc_h);
+  gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("Auto-Play: ON");
+) : (
+  gfx_measurestr("Auto-Play: OFF", psc_w, psc_h);
+  gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("Auto-Play: OFF");
+);
+
+// Текст другої кнопки
+play_single_note_mode == 1 ? (
+  gfx_measurestr("L-Click: Note", psc_w, psc_h);
+  gfx_x = play_single_x + (play_single_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("L-Click: Note");
+) : (
+  gfx_measurestr("L-Click: Chord", psc_w, psc_h);
+  gfx_x = play_single_x + (play_single_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("L-Click: Chord");
+);
 
 // Кнопка Find Chords (завжди активна)
 is_hover_find = mouse_x >= find_chords_x && mouse_x <= find_chords_x + find_chords_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
@@ -1477,7 +1517,7 @@ show_chord_browser ? (
       // Name Box -> Send to piano
       mouse_x >= bx && mouse_x <= bx+bw_n && mouse_y >= by && mouse_y <= by+bh_n ? (
         usr_sel_notes_mask = cbox[i*8+7];
-        auto_play_timer = 15;
+        auto_play_enabled ? auto_play_timer = 15 : 0;
         mouse_click = 0;
         hit = 1;
       ) :
@@ -1673,7 +1713,7 @@ show_palette ? (
 
       mouse_click ? (
         usr_sel_notes_mask = p_real_m;
-        auto_play_timer = 15;
+        auto_play_enabled ? auto_play_timer = 15 : 0;
         mouse_click = 0;
       );
     );
