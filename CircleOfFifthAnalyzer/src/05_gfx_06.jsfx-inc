@@ -1,0 +1,23 @@
+// === STRUM MENU (Left, below Extensions) ===
+strum_y_start = 370;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = strum_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Strum Effect:");
+
+gfx_setfont(1, "Arial", 14);
+s_idx = 0;
+loop(4,
+  s_y = strum_y_start + 20 + s_idx * 16;
+  s_idx == selected_strum ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = s_y;
+  s_idx == 0 ? gfx_drawstr("None") :
+  s_idx == 1 ? gfx_drawstr("Fast") :
+  s_idx == 2 ? gfx_drawstr("Medium") : gfx_drawstr("Slow");
+  s_idx += 1;
+);
+

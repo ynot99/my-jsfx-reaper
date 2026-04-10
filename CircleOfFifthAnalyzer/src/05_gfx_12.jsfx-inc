@@ -1,0 +1,87 @@
+// === ЗАСТОСУВАННЯ ОБЕРНЕНЬ АКОРДІВ (INVERSIONS ТА AUTO VL) ===
+new_req_n1 != -1 ? (
+  base_changed = (new_req_n1 != prev_base_n1) || (new_req_n2 != prev_base_n2) || (new_req_n3 != prev_base_n3) || (new_req_n4 != prev_base_n4) || (new_req_n5 != prev_base_n5);
+
+  base_changed ? (
+    prev_base_n1 = new_req_n1;
+    prev_base_n2 = new_req_n2;
+    prev_base_n3 = new_req_n3;
+    prev_base_n4 = new_req_n4;
+    prev_base_n5 = new_req_n5;
+
+    selected_inversion == 4 ? (
+      best_inv = 0; min_dist = 9999; best_cog = 60;
+      test_inv = 0;
+      while(test_inv <= 3) (
+        t_arr = 600;
+        t_arr[0] = new_req_n1 != -1 ? new_req_n1 : 999;
+        t_arr[1] = new_req_n2 != -1 ? new_req_n2 : 999;
+        t_arr[2] = new_req_n3 != -1 ? new_req_n3 : 999;
+        t_arr[3] = new_req_n4 != -1 ? new_req_n4 : 999;
+        t_arr[4] = new_req_n5 != -1 ? new_req_n5 : 999;
+
+        v_cnt = 0; loop(5, t_arr[v_cnt] != 999 ? v_cnt += 1;);
+
+        test_inv > 0 ? (
+          loop(test_inv,
+            m_v = 999; m_i = -1;
+            k = 0; loop(5, t_arr[k] < m_v ? (m_v = t_arr[k]; m_i = k;); k += 1;);
+            m_i != -1 ? t_arr[m_i] += 12;
+          );
+        );
+
+        sum = 0; k = 0; loop(5, t_arr[k] != 999 ? sum += t_arr[k]; k += 1;);
+        cog = v_cnt > 0 ? sum / v_cnt : 60;
+
+        dist = abs(cog - last_chord_cog);
+        dist < min_dist ? ( min_dist = dist; best_inv = test_inv; best_cog = cog; );
+        test_inv += 1;
+      );
+      auto_inv_val = best_inv;
+    );
+  );
+
+  applied_inv = selected_inversion == 4 ? auto_inv_val : selected_inversion;
+
+  applied_inv > 0 ? (
+    arr_n = 500;
+    arr_n[0] = new_req_n1 != -1 ? new_req_n1 : 999;
+    arr_n[1] = new_req_n2 != -1 ? new_req_n2 : 999;
+    arr_n[2] = new_req_n3 != -1 ? new_req_n3 : 999;
+    arr_n[3] = new_req_n4 != -1 ? new_req_n4 : 999;
+    arr_n[4] = new_req_n5 != -1 ? new_req_n5 : 999;
+
+    loop(applied_inv,
+      min_v = 999; min_idx = -1;
+      i = 0; loop(5, arr_n[i] < min_v ? (min_v = arr_n[i]; min_idx = i;); i += 1;);
+      min_idx != -1 ? arr_n[min_idx] += 12;
+    );
+
+    i = 0; loop(4,
+      j = i + 1; loop(4 - i,
+        arr_n[i] > arr_n[j] ? ( t = arr_n[i]; arr_n[i] = arr_n[j]; arr_n[j] = t; );
+        j += 1;
+      );
+      i += 1;
+    );
+
+    new_req_n1 = arr_n[0] != 999 ? arr_n[0] : -1;
+    new_req_n2 = arr_n[1] != 999 ? arr_n[1] : -1;
+    new_req_n3 = arr_n[2] != 999 ? arr_n[2] : -1;
+    new_req_n4 = arr_n[3] != 999 ? arr_n[3] : -1;
+    new_req_n5 = arr_n[4] != 999 ? arr_n[4] : -1;
+  );
+
+  base_changed ? (
+    sum = 0; v_cnt = 0;
+    new_req_n1 != -1 ? (sum += new_req_n1; v_cnt += 1;);
+    new_req_n2 != -1 ? (sum += new_req_n2; v_cnt += 1;);
+    new_req_n3 != -1 ? (sum += new_req_n3; v_cnt += 1;);
+    new_req_n4 != -1 ? (sum += new_req_n4; v_cnt += 1;);
+    new_req_n5 != -1 ? (sum += new_req_n5; v_cnt += 1;);
+    v_cnt > 0 ? (last_chord_cog = sum / v_cnt;);
+  );
+);
+
+// Атомарно оновлюємо глобальні запити нот для аудіо-потоку в самому кінці
+req_n1 = new_req_n1; req_n2 = new_req_n2; req_n3 = new_req_n3; req_n4 = new_req_n4; req_n5 = new_req_n5;

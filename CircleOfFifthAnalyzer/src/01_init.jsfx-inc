@@ -1,0 +1,261 @@
+@init
+ext_noinit = 1; // Запобігає скиданню всіх змінних при старті відтворення у REAPER
+pi = 3.14159265;
+
+// JSFX викликає @init щоразу при старті відтворення, тому обмежуємо скидання
+init_done == 0 ? (
+  selected_center_idx = 0; // Тоніка за замовчуванням: C (індекс 0)
+  selected_mode_idx = 0;   // Режим за замовчуванням: Ionian (0)
+  selected_voicing = 0;    // Тип акорду: 0=Diatonic, 1=Maj, 2=Min, 3=Dim, 4=Aug, 5=Sus2, 6=Sus4, 7=5
+  selected_extension = 0;  // 0=None, 1=7th, 2=9th
+  selected_strum = 0;      // 0=None, 1=Fast, 2=Medium, 3=Slow
+  selected_inversion = 0;  // 0=Root Pos, 1=1st Inv, 2=2nd Inv, 3=3rd Inv
+  strum_step = 5;          // Стан таймера струму (5 = неактивно)
+  usr_sel_notes_mask = 0;  // 12-бітня маска для кастомних вибраних нот на піаніно
+  play_octave_offset = 0;  // Зміщення октави (-3 до +3)
+  actual_notes_held = 400; // Allocating memory block to prevent overlap with pM/pMin
+  idx = 0; loop(128, actual_notes_held[idx] = 0; idx += 1);
+  last_chord_cog = 60; // Auto VL base COG (Middle C)
+  auto_inv_val = 0;
+  prev_base_n1 = -1; prev_base_n2 = -1; prev_base_n3 = -1; prev_base_n4 = -1; prev_base_n5 = -1;
+
+  pal_cnt_mem = 13000;
+  pal_cnt_mem[0] = 0;
+  pal_cnt = 0;
+  pal_r = 10000;
+  pal_t = 11000;
+  pal_m = 12000;
+
+  auto_play_enabled = 1;
+
+  init_done = 1;
+  play_scale_trigger = 0;
+  scale_play_step = 8;
+  scale_play_timer = 0;
+  scale_play_notes = 1000;
+  scale_active_note = -1;
+);
+last_mouse_cap = 0;
+
+cbox = 20000; // Buffer for spatial mapping of Find Chords hit boxes
+
+// Масиви для зберігання станів: чи натиснута нота (0-11, де 0 = C)
+notes_held = 300;
+i = 0; loop(12, notes_held[i] = 0; i += 1);
+
+active_n1 = -1; active_n2 = -1; active_n3 = -1; active_n4 = -1; active_n5 = -1;
+req_n1 = -1; req_n2 = -1; req_n3 = -1; req_n4 = -1; req_n5 = -1;
+
+current_root = -1; // Нота (0-11)
+current_type = -1; // 0 = Мажор, 1 = Мінор
+
+// Мапінг позицій на колі (від 0 до 11, за годинниковою стрілкою) на pitch-класи
+// Мажорні корені: C, G, D, A, E, B, F#, Db, Ab, Eb, Bb, F
+pM = 100;
+pM[0]=0; pM[1]=7; pM[2]=2; pM[3]=9; pM[4]=4; pM[5]=11;
+pM[6]=6; pM[7]=1; pM[8]=8; pM[9]=3; pM[10]=10; pM[11]=5;
+
+// Мінорні корені (паралельні): Am, Em, Bm, F#m, C#m, G#m, D#m, Bbm, Fm, Cm, Gm, Dm
+pMin = 200;
+pMin[0]=9; pMin[1]=4; pMin[2]=11; pMin[3]=6; pMin[4]=1; pMin[5]=8;
+pMin[6]=3; pMin[7]=10; pMin[8]=5; pMin[9]=0; pMin[10]=7; pMin[11]=2;
+
+// Функції для відмальовки тексту
+function draw_maj_name(idx) (
+  idx == 0 ? gfx_drawstr("C") : idx == 1 ? gfx_drawstr("G") :
+  idx == 2 ? gfx_drawstr("D") : idx == 3 ? gfx_drawstr("A") :
+  idx == 4 ? gfx_drawstr("E") : idx == 5 ? gfx_drawstr("B") :
+  idx == 6 ? gfx_drawstr("F#") : idx == 7 ? gfx_drawstr("Db") :
+  idx == 8 ? gfx_drawstr("Ab") : idx == 9 ? gfx_drawstr("Eb") :
+  idx == 10 ? gfx_drawstr("Bb") : idx == 11 ? gfx_drawstr("F") : 0;
+);
+
+function draw_min_name(idx) (
+  idx == 0 ? gfx_drawstr("Am") : idx == 1 ? gfx_drawstr("Em") :
+  idx == 2 ? gfx_drawstr("Bm") : idx == 3 ? gfx_drawstr("F#m") :
+  idx == 4 ? gfx_drawstr("C#m") : idx == 5 ? gfx_drawstr("G#m") :
+  idx == 6 ? gfx_drawstr("D#m") : idx == 7 ? gfx_drawstr("Bbm") :
+  idx == 8 ? gfx_drawstr("Fm") : idx == 9 ? gfx_drawstr("Cm") :
+  idx == 10 ? gfx_drawstr("Gm") : idx == 11 ? gfx_drawstr("Dm") : 0;
+);
+
+function draw_root_name(root) (
+  root == 0 ? gfx_drawstr("C") : root == 1 ? gfx_drawstr("Db") :
+  root == 2 ? gfx_drawstr("D") : root == 3 ? gfx_drawstr("Eb") :
+  root == 4 ? gfx_drawstr("E") : root == 5 ? gfx_drawstr("F") :
+  root == 6 ? gfx_drawstr("F#") : root == 7 ? gfx_drawstr("G") :
+  root == 8 ? gfx_drawstr("Ab") : root == 9 ? gfx_drawstr("A") :
+  root == 10 ? gfx_drawstr("Bb") : root == 11 ? gfx_drawstr("B") : 0;
+);
+
+function draw_chord_ext(type) (
+  type == 1 ? gfx_drawstr("m") :
+  type == 2 ? gfx_drawstr("dim") :
+  type == 3 ? gfx_drawstr("aug") :
+  type == 4 ? gfx_drawstr("sus2") :
+  type == 5 ? gfx_drawstr("sus4") :
+  type == 6 ? gfx_drawstr("5") :
+  type == 7 ? gfx_drawstr("maj7") :
+  type == 8 ? gfx_drawstr("m7") :
+  type == 9 ? gfx_drawstr("7") :
+  type == 10 ? gfx_drawstr("maj9") :
+  type == 11 ? gfx_drawstr("m9") :
+  type == 12 ? gfx_drawstr("9") :
+  type == 13 ? gfx_drawstr("maj11") :
+  type == 14 ? gfx_drawstr("m11") :
+  type == 16 ? gfx_drawstr("6") :
+  type == 17 ? gfx_drawstr("m6") :
+  type == 18 ? gfx_drawstr("add9") :
+  type == 19 ? gfx_drawstr("madd9") :
+  type == 20 ? gfx_drawstr("7sus4") :
+  type == 21 ? gfx_drawstr("m7b5") :
+  type == 22 ? gfx_drawstr("dim7") :
+  type == 23 ? gfx_drawstr("mM7") :
+  type == 24 ? gfx_drawstr("add11") :
+  type == 25 ? gfx_drawstr("madd11") : 0;
+);
+
+function draw_mode_name(idx) (
+  idx == 0 ? gfx_drawstr("Ionian") :
+  idx == 1 ? gfx_drawstr("Dorian") :
+  idx == 2 ? gfx_drawstr("Phrygian") :
+  idx == 3 ? gfx_drawstr("Lydian") :
+  idx == 4 ? gfx_drawstr("Mixolydian") :
+  idx == 5 ? gfx_drawstr("Aeolian") :
+    idx == 6 ? gfx_drawstr("Locrian") :
+    idx == 7 ? gfx_drawstr("Harm. Min") :
+    idx == 8 ? gfx_drawstr("Melodic Min") :
+    idx == 9 ? gfx_drawstr("Phryg. Dom") :
+    idx == 10 ? gfx_drawstr("Lydian Dom") :
+    idx == 11 ? gfx_drawstr("Double Harm") : 0;
+  );
+
+  function is_in_scale(n, root, mode) local(d) (
+    d = (n - root + 12) % 12;
+    mode == 0 ? (d==0 || d==2 || d==4 || d==5 || d==7 || d==9 || d==11) : // Ionian
+    mode == 1 ? (d==0 || d==2 || d==3 || d==5 || d==7 || d==9 || d==10) : // Dorian
+    mode == 2 ? (d==0 || d==1 || d==3 || d==5 || d==7 || d==8 || d==10) : // Phrygian
+    mode == 3 ? (d==0 || d==2 || d==4 || d==6 || d==7 || d==9 || d==11) : // Lydian
+    mode == 4 ? (d==0 || d==2 || d==4 || d==5 || d==7 || d==9 || d==10) : // Mixolydian
+    mode == 5 ? (d==0 || d==2 || d==3 || d==5 || d==7 || d==8 || d==10) : // Aeolian
+    mode == 6 ? (d==0 || d==1 || d==3 || d==5 || d==6 || d==8 || d==10) : // Locrian
+    mode == 7 ? (d==0 || d==2 || d==3 || d==5 || d==7 || d==8 || d==11) : // Harmonic Minor
+    mode == 8 ? (d==0 || d==2 || d==3 || d==5 || d==7 || d==9 || d==11) : // Melodic Minor
+    mode == 9 ? (d==0 || d==1 || d==4 || d==5 || d==7 || d==8 || d==10) : // Phrygian Dominant
+    mode == 10 ? (d==0 || d==2 || d==4 || d==6 || d==7 || d==9 || d==10) : // Lydian Dominant
+    mode == 11 ? (d==0 || d==1 || d==4 || d==5 || d==7 || d==8 || d==11) : 0; // Double Harmonic
+  );
+
+  function get_scale_degree(n, root, mode) local(d) (
+    d = (n - root + 12) % 12;
+    mode == 0 ? ( d==0?1: d==2?2: d==4?3: d==5?4: d==7?5: d==9?6: d==11?7: 0 ) :
+    mode == 1 ? ( d==0?1: d==2?2: d==3?3: d==5?4: d==7?5: d==9?6: d==10?7: 0 ) :
+    mode == 2 ? ( d==0?1: d==1?2: d==3?3: d==5?4: d==7?5: d==8?6: d==10?7: 0 ) :
+    mode == 3 ? ( d==0?1: d==2?2: d==4?3: d==6?4: d==7?5: d==9?6: d==11?7: 0 ) :
+    mode == 4 ? ( d==0?1: d==2?2: d==4?3: d==5?4: d==7?5: d==9?6: d==10?7: 0 ) :
+    mode == 5 ? ( d==0?1: d==2?2: d==3?3: d==5?4: d==7?5: d==8?6: d==10?7: 0 ) :
+    mode == 6 ? ( d==0?1: d==1?2: d==3?3: d==5?4: d==6?5: d==8?6: d==10?7: 0 ) :
+    mode == 7 ? ( d==0?1: d==2?2: d==3?3: d==5?4: d==7?5: d==8?6: d==11?7: 0 ) :
+    mode == 8 ? ( d==0?1: d==2?2: d==3?3: d==5?4: d==7?5: d==9?6: d==11?7: 0 ) :
+    mode == 9 ? ( d==0?1: d==1?2: d==4?3: d==5?4: d==7?5: d==8?6: d==10?7: 0 ) :
+    mode == 10 ? ( d==0?1: d==2?2: d==4?3: d==6?4: d==7?5: d==9?6: d==10?7: 0 ) :
+    mode == 11 ? ( d==0?1: d==1?2: d==4?3: d==5?4: d==7?5: d==8?6: d==11?7: 0 ) : 0;
+  );
+
+  function get_mode_offset(m, d) (
+    d = d % 7;
+    m == 0 ? (d==0?0: d==1?2: d==2?4: d==3?5: d==4?7: d==5?9: d==6?11) :
+    m == 1 ? (d==0?0: d==1?2: d==2?3: d==3?5: d==4?7: d==5?9: d==6?10) :
+    m == 2 ? (d==0?0: d==1?1: d==2?3: d==3?5: d==4?7: d==5?8: d==6?10) :
+    m == 3 ? (d==0?0: d==1?2: d==2?4: d==3?6: d==4?7: d==5?9: d==6?11) :
+    m == 4 ? (d==0?0: d==1?2: d==2?4: d==3?5: d==4?7: d==5?9: d==6?10) :
+    m == 5 ? (d==0?0: d==1?2: d==2?3: d==3?5: d==4?7: d==5?8: d==6?10) :
+    m == 6 ? (d==0?0: d==1?1: d==2?3: d==3?5: d==4?6: d==5?8: d==6?10) :
+    m == 7 ? (d==0?0: d==1?2: d==2?3: d==3?5: d==4?7: d==5?8: d==6?11) :
+    m == 8 ? (d==0?0: d==1?2: d==2?3: d==3?5: d==4?7: d==5?9: d==6?11) :
+    m == 9 ? (d==0?0: d==1?1: d==2?4: d==3?5: d==4?7: d==5?8: d==6?10) :
+    m == 10 ? (d==0?0: d==1?2: d==2?4: d==3?6: d==4?7: d==5?9: d==6?10) :
+    m == 11 ? (d==0?0: d==1?1: d==2?4: d==3?5: d==4?7: d==5?8: d==6?11) : 0;
+  );
+
+  function draw_scale_degree(deg, tx, ty, is_black, is_played) local(dw, dh) (
+    deg > 0 ? (
+      gfx_setfont(1, "Arial", is_black ? 16 : 20, 'b'); // Збільшив загальний розмір і зробив жирним
+      is_black && !is_played ? (
+        gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1; // Світлий текст на чорних неактивних клавішах
+      ) : (
+        gfx_r=0.1; gfx_g=0.1; gfx_b=0.1; gfx_a=1; // Темний текст в інших випадках
+      );
+
+      // Робимо Root ноту (1) значно більшою та виділяємо кольором
+    deg == 1 ? (
+      gfx_setfont(1, "Arial", is_black ? 24 : 32, 'b');
+      !is_played ? (
+        // Жовтуватий для чорних клавіш і синій для білих, щоб тоніка світилась навіть коли не натиснута
+        is_black ? (gfx_r=1.0; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.0; gfx_g=0.4; gfx_b=0.9;)
+      );
+    );
+
+    deg == 1 ? gfx_measurestr("I", dw, dh) :
+    deg == 2 ? gfx_measurestr("II", dw, dh) :
+    deg == 3 ? gfx_measurestr("III", dw, dh) :
+    deg == 4 ? gfx_measurestr("IV", dw, dh) :
+    deg == 5 ? gfx_measurestr("V", dw, dh) :
+    deg == 6 ? gfx_measurestr("VI", dw, dh) :
+    deg == 7 ? gfx_measurestr("VII", dw, dh) : 0;
+
+    gfx_x = tx - dw/2;
+    gfx_y = ty - dh/2;
+
+    deg == 1 ? gfx_drawstr("I") :
+    deg == 2 ? gfx_drawstr("II") :
+    deg == 3 ? gfx_drawstr("III") :
+    deg == 4 ? gfx_drawstr("IV") :
+    deg == 5 ? gfx_drawstr("V") :
+    deg == 6 ? gfx_drawstr("VI") :
+    deg == 7 ? gfx_drawstr("VII") : 0;
+  );
+);
+
+function draw_circle_roman(deg, ctx, cty, is_minor, is_played) local(dw, dh) (
+  deg > 0 ? (
+    gfx_setfont(1, "Arial", 20, 'b'); // Збільшений розмір і жирний
+    is_played ? (
+      gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст для активного акорду
+    ) : (
+      gfx_r=0.8; gfx_g=0.8; gfx_b=0.85; gfx_a=1; // Світлий текст
+    );
+    is_minor ? (
+      deg == 1 ? gfx_measurestr("i", dw, dh) : deg == 2 ? gfx_measurestr("ii", dw, dh) :
+      deg == 3 ? gfx_measurestr("iii", dw, dh) : deg == 4 ? gfx_measurestr("iv", dw, dh) :
+      deg == 5 ? gfx_measurestr("v", dw, dh) : deg == 6 ? gfx_measurestr("vi", dw, dh) : gfx_measurestr("vii", dw, dh);
+      gfx_x = ctx - dw/2; gfx_y = cty;
+      deg == 1 ? gfx_drawstr("i") : deg == 2 ? gfx_drawstr("ii") :
+      deg == 3 ? gfx_drawstr("iii") : deg == 4 ? gfx_drawstr("iv") :
+      deg == 5 ? gfx_drawstr("v") : deg == 6 ? gfx_drawstr("vi") : gfx_drawstr("vii");
+    ) : (
+      deg == 1 ? gfx_measurestr("I", dw, dh) : deg == 2 ? gfx_measurestr("II", dw, dh) :
+      deg == 3 ? gfx_measurestr("III", dw, dh) : deg == 4 ? gfx_measurestr("IV", dw, dh) :
+      deg == 5 ? gfx_measurestr("V", dw, dh) : deg == 6 ? gfx_measurestr("VI", dw, dh) : gfx_measurestr("VII", dw, dh);
+      gfx_x = ctx - dw/2; gfx_y = cty;
+      deg == 1 ? gfx_drawstr("I") : deg == 2 ? gfx_drawstr("II") :
+      deg == 3 ? gfx_drawstr("III") : deg == 4 ? gfx_drawstr("IV") :
+      deg == 5 ? gfx_drawstr("V") : deg == 6 ? gfx_drawstr("VI") : gfx_drawstr("VII");
+    );
+    gfx_setfont(1, "Arial", 32, 'b'); // відновлення основного шрифту (збільшено)
+  );
+);
+
+function draw_hatching(rx, ry, rw, rh) local(c, st, x1, y1, x2, y2) (
+  st = 7; // Відстань між лініями
+  c = 0;
+  while(c < rw + rh) (
+    x1 = max(0, c - rh);
+    y1 = min(rh, c);
+    x2 = min(rw, c);
+    y2 = max(0, c - rw);
+    gfx_line(rx + x1, ry + y1, rx + x2, ry + y2, 1);
+    c += st;
+  );
+);
+

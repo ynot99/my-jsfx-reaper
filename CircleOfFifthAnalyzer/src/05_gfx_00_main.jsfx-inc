@@ -1,0 +1,171 @@
+@gfx 400 400
+
+ui_chord_override_timer > 0 ? ui_chord_override_timer -= 1;
+
+current_root != -1 ? (
+    current_root != global_last_root || current_btype != global_last_btype ? (
+        global_last_root = current_root;
+        global_last_btype = current_btype;
+        
+        ui_chord_override_timer == 0 ? (
+            global_last_s_r = current_root;
+            global_last_s_t = current_btype == 0 ? 0 : 1;
+            global_last_s_real_m = current_btype == 0 ? 
+                ((1 << current_root) | (1 << ((current_root+4)%12)) | (1 << ((current_root+7)%12))) :
+                ((1 << current_root) | (1 << ((current_root+3)%12)) | (1 << ((current_root+7)%12)));
+        );
+    );
+);
+
+// Обробка клавіатури
+while((key = gfx_getchar()) > 0) (
+  // Left arrow or A/a
+  key == 1818584692 || key == 97 || key == 65 ? (
+    play_octave_offset = max(-3, play_octave_offset - 1);
+    slider6 = play_octave_offset; slider_automate(slider6);
+  ) :
+  // Right arrow or D/d
+  key == 1919379572 || key == 100 || key == 68 ? (
+    play_octave_offset = min(3, play_octave_offset + 1);
+    slider6 = play_octave_offset; slider_automate(slider6);
+  ) :
+  // Up arrow or W/w
+  key == 30064 || key == 119 || key == 87 ? (
+    selected_inversion = min(4, selected_inversion + 1);
+    slider7 = selected_inversion; slider_automate(slider7);
+  ) :
+  // Down arrow or S/s
+  key == 1685026670 || key == 115 || key == 83 ? (
+    selected_inversion = max(0, selected_inversion - 1);
+    slider7 = selected_inversion; slider_automate(slider7);
+  );
+);
+
+// Фон
+gfx_r=0.1; gfx_g=0.1; gfx_b=0.12; gfx_a=1;
+gfx_rect(0,0,gfx_w,gfx_h);
+
+cx = gfx_w / 2;
+kb_h = 80; // Висота піаніно (виділяємо місце знизу)
+cy = (gfx_h - kb_h) / 2;
+r_maj = min(cx, cy) * 0.75; // Радіус зовнішнього кола (Мажор)
+r_min = min(cx, cy) * 0.45; // Радіус внутрішнього кола (Мінор)
+
+// Обробка кліків миші
+mouse_click = (mouse_cap & 1) && !(last_mouse_cap & 1);
+mouse_rclick = (mouse_cap & 2) && !(last_mouse_cap & 2);
+mouse_mclick = (mouse_cap & 64) && !(last_mouse_cap & 64);
+last_mouse_cap = mouse_cap;
+
+// Завжди вираховуємо над якою нотою миша
+hovered_pc = -1;
+mouse_y >= gfx_h - kb_h ? (
+  w_keys = 14; w_w = gfx_w / w_keys; bk_w = w_w * 0.6; bk_h_actual = kb_h * 0.6;
+  // Шукаємо клік по чорній клавіші (вони перекривають білі)
+  bk_idx = 0;
+  loop(w_keys - 1,
+    m = bk_idx % 7;
+    m != 2 && m != 6 ? (
+      krx = bk_idx * w_w + w_w - bk_w/2;
+      mouse_x >= krx && mouse_x <= krx + bk_w && mouse_y <= gfx_h - kb_h + bk_h_actual ? (
+        hovered_pc = (m==0)*1 + (m==1)*3 + (m==3)*6 + (m==4)*8 + (m==5)*10;
+      );
+    );
+    bk_idx += 1;
+  );
+  // Якщо не знайшли чорну, шукаємо білу
+  hovered_pc < 0 ? (
+    wk_idx = floor(mouse_x / w_w);
+    wk_idx >= 0 && wk_idx < w_keys ? (
+      m = wk_idx % 7;
+      hovered_pc = (m==0)*0 + (m==1)*2 + (m==2)*4 + (m==3)*5 + (m==4)*7 + (m==5)*9 + (m==6)*11;
+    );
+  );
+);
+
+// Якщо затиснута ліва кнопка миші над піаніно - постійно граємо
+(mouse_cap & 1) ? (
+  hovered_pc >= 0 ? (
+    auto_play_timer = max(auto_play_timer, 2);
+  );
+);
+
+(mouse_click + mouse_rclick + mouse_mclick) > 0 ? (
+  mouse_y >= gfx_h - kb_h ? (
+    mouse_click && hovered_pc >= 0 ? (
+      // Лівий клік - ми не додаємо ноти, тільки граємо
+      auto_play_timer = max(auto_play_timer, 2);
+    );
+
+    mouse_rclick && hovered_pc >= 0 ? (
+      // Правий клік - перемикає/додає ноту в поточну маску
+      usr_sel_notes_mask ~= (1 << hovered_pc);
+      auto_play_enabled ? auto_play_timer = 15 : 0;
+    );
+
+    mouse_mclick ? (
+      // Середній клік - чистить виділення
+      usr_sel_notes_mask = 0;
+    );
+
+  // Скидаємо прапорці кліку, щоб не спрацювала логіка нижче для цих же координат екрану
+  mouse_click = 0;
+  mouse_rclick = 0;
+  mouse_mclick = 0;
+  );
+);
+
+mouse_click ? (
+  !show_chord_browser && !show_palette && !show_suggestions ? (
+    // Перевіряємо кліки по меню "Modes" (у лівому верхньому куті)
+  mouse_x >= 10 && mouse_x <= 220 && mouse_y >= 10 && mouse_y <= 130 ? (
+    m_col = floor((mouse_x - 10) / 110);
+    m_row = floor((mouse_y - 10) / 20);
+    m_idx = m_col * 6 + m_row;
+    m_idx >= 0 && m_idx <= 11 ? ( selected_mode_idx = m_idx; slider2 = m_idx; slider_automate(slider2); );
+  ) :
+  // Перевіряємо кліки по меню "Chord Type" (зліва під Modes)
+  mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 160 && mouse_y <= 288 ? (
+    v_idx = floor((mouse_y - 160) / 16);
+    v_idx >= 0 && v_idx <= 7 ? ( selected_voicing = v_idx; slider3 = v_idx; slider_automate(slider3); );
+  ) :
+  // Перевіряємо кліки по меню "Extensions" (зліва під Chord Type)
+  mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 310 && mouse_y <= 358 ? (
+    e_idx = floor((mouse_y - 310) / 16);
+    e_idx >= 0 && e_idx <= 2 ? ( selected_extension = e_idx; slider4 = e_idx; slider_automate(slider4); );
+  ) :
+  // Перевіряємо кліки по меню "Strum" (зліва під Extensions)
+  mouse_x >= 10 && mouse_x <= 120 && mouse_y >= 390 && mouse_y <= 454 ? (
+    s_idx = floor((mouse_y - 390) / 16);
+    s_idx >= 0 && s_idx <= 3 ? ( selected_strum = s_idx; slider5 = s_idx; slider_automate(slider5); );
+  ) :
+  // Перевіряємо кліки по меню "Inversions" (зліва під Strum)
+  mouse_x >= 10 && mouse_x <= 130 && mouse_y >= 480 && mouse_y <= 560 ? (
+    inv_click = floor((mouse_y - 480) / 16);
+    inv_click >= 0 && inv_click <= 4 ? ( selected_inversion = inv_click; slider7 = inv_click; slider_automate(slider7); );
+  );
+  ); // Close !show_chord_browser && !show_palette condition
+);
+
+mouse_rclick ? (
+  !show_chord_browser && !show_palette && !show_suggestions ? (
+    c_idx = 0;
+    loop(12,
+      angle = c_idx * (2 * pi / 12) - (pi / 2);
+      t_x_maj = cx + cos(angle) * r_maj;
+      t_y_maj = cy + sin(angle) * r_maj;
+      t_x_min = cx + cos(angle) * r_min;
+      t_y_min = cy + sin(angle) * r_min;
+
+      // Перевіряємо клік по мажорному або мінорному колу
+      pow(mouse_x - t_x_maj, 2) + pow(mouse_y - t_y_maj, 2) <= pow(38, 2) ||
+      pow(mouse_x - t_x_min, 2) + pow(mouse_y - t_y_min, 2) <= pow(35, 2) ? (
+        selected_center_idx = c_idx;
+        slider1 = c_idx; slider_automate(slider1);
+      );
+
+      c_idx += 1;
+    );
+  );
+);
+

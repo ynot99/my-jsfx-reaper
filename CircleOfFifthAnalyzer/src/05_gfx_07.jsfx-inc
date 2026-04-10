@@ -1,0 +1,258 @@
+// === INVERSIONS MENU (Left, below Strum) ===
+inv_y_start = 460;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = inv_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Inversions:");
+
+gfx_setfont(1, "Arial", 14);
+inv_idx = 0;
+loop(5,
+  i_y = inv_y_start + 20 + inv_idx * 16;
+  inv_idx == selected_inversion ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = i_y;
+  inv_idx == 0 ? gfx_drawstr("Root Pos") :
+  inv_idx == 1 ? gfx_drawstr("1st Inv") :
+  inv_idx == 2 ? gfx_drawstr("2nd Inv") :
+  inv_idx == 3 ? gfx_drawstr("3rd Inv") : gfx_drawstr("Auto VL");
+  inv_idx += 1;
+);
+
+gfx_x = 10; gfx_y = v_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Chord Type:");
+
+gfx_setfont(1, "Arial", 14);
+v_idx = 0;
+loop(8,
+  v_y = v_y_start + 20 + v_idx * 16;
+  v_idx == selected_voicing ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = v_y;
+  v_idx == 0 ? gfx_drawstr("Diatonic") :
+  v_idx == 1 ? gfx_drawstr("Major (maj)") :
+  v_idx == 2 ? gfx_drawstr("Minor (m)") :
+  v_idx == 3 ? gfx_drawstr("Diminished") :
+  v_idx == 4 ? gfx_drawstr("Aug (aug)") :
+  v_idx == 5 ? gfx_drawstr("Sus2") :
+  v_idx == 6 ? gfx_drawstr("Sus4") : gfx_drawstr("Power (5)");
+  v_idx += 1;
+);
+
+gfx_setfont(1, "Arial", 32, 'b'); // Збільшили текст для акордів на колі та зробили жирним
+
+// Обчислюємо тоніку відносно обраного сектора (Relative Modes підхід)
+mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
+            selected_mode_idx == 2 ? 4 :  // Phrygian (+4)
+            selected_mode_idx == 3 ? 5 :  // Lydian (+5)
+            selected_mode_idx == 4 ? 7 :  // Mixolydian (+7)
+            selected_mode_idx == 5 ? 9 :  // Aeolian (+9)
+              selected_mode_idx == 6 ? 11 :
+              selected_mode_idx == 7 ? 9 :  // Harmonic Minor (+9)
+              selected_mode_idx == 8 ? 0 :  // Melodic Minor => Parallel
+              selected_mode_idx == 9 ? 0 :  // Phryg Dom => Parallel
+              selected_mode_idx == 10 ? 0 : // Lydian Dom => Parallel
+              selected_mode_idx == 11 ? 0 : 0; // Double Harm => Parallel
+  key_root = (pM[selected_center_idx] + mode_offs) % 12;
+
+  // Відмальовка 12 позицій кола
+  i = 0;
+  loop(12,
+    angle = i * (2 * pi / 12) - (pi / 2); // Починаємо з 12 годин
+  // Чи входить поточна комірка у вибраний мишкою сектор 6-ти діатонічних акордів?
+  // Тепер ми використовуємо підхід Relative Modes:
+  // Обраний сектор (тональність) залишається на місці, а змінюється лише тоніка для піаніно та ладів.
+  cluster_center = selected_center_idx;
+  in_cluster = (i == cluster_center || i == (cluster_center + 1) % 12 || i == (cluster_center + 11) % 12);
+
+  // === МАЖОРНЕ КОЛО (Зовнішнє) ===
+  x_maj = cx + cos(angle) * r_maj;
+  y_maj = cy + sin(angle) * r_maj;
+
+  is_hover_maj = pow(mouse_x - x_maj, 2) + pow(mouse_y - y_maj, 2) <= pow(38, 2);
+  is_lclick_maj = !show_chord_browser && !show_palette && !show_suggestions && (mouse_cap & 1) && is_hover_maj; // Тепер лівий клік для гри
+
+  is_lclick_maj ? (
+    c_note = pM[i];
+    c_note < key_root ? c_note += 12; // Зміщуємо в октаву відносно центру
+    new_req_n1 = 48 + (play_octave_offset * 12) + c_note;
+    v_c = selected_voicing == 0 ? 1 : selected_voicing;
+
+    v_c == 1 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 11 : -1; ) :
+    v_c == 2 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 3 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 6; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 9 : -1; ) :
+    v_c == 4 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 8; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 5 ? ( new_req_n2 = new_req_n1 + 2; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 6 ? ( new_req_n2 = new_req_n1 + 5; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    ( new_req_n2 = new_req_n1 + 7; new_req_n3 = -1; new_req_n4 = -1; );
+
+    new_req_n5 = selected_extension == 2 && v_c != 7 ? new_req_n1 + 14 : -1;
+  );
+
+  is_maj_played = (current_btype == 0 && current_root == pM[i]) || is_lclick_maj;
+
+  // Вираховуємо маску акорду (мажорний тризвук) для перевірки до вибраних нот
+  chord_mask = (1 << pM[i]) | (1 << ((pM[i]+4)%12)) | (1 << ((pM[i]+7)%12));
+  has_usr_match_maj = usr_sel_notes_mask > 0 && ((usr_sel_notes_mask & chord_mask) == usr_sel_notes_mask);
+
+  // Якщо поточний мажорний акорд відповідає цій комірці - підсвічуємо
+  is_maj_played ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=0.9;
+    gfx_circle(x_maj, y_maj, 38, 1, 1); // Залитий круг
+    gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст
+  ) : has_usr_match_maj ? (
+    gfx_r=0.2; gfx_g=0.8; gfx_b=0.2; gfx_a=0.85; // Зелений для збігу з вибраними нотами
+    gfx_circle(x_maj, y_maj, 38, 1, 1);
+    gfx_r=0.0; gfx_g=0.0; gfx_b=0.0; gfx_a=1;
+  ) : in_cluster ? (
+    gfx_r=0.25; gfx_g=0.25; gfx_b=0.28; gfx_a=1; // Темно-сірий фон для діатонічних акордів
+    gfx_circle(x_maj, y_maj, 38, 1, 1);
+    gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1; // Білий текст
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1; // Звичайний приглушений текст
+  );
+
+  // Центруємо і малюємо мажорний текст
+  idx = i; // Зберігаємо індекс для функцій, оскільки JSFX не підтримує передачу замикань
+  gfx_x = x_maj; gfx_y = y_maj;
+  idx == 0 ? gfx_measurestr("C", w, h) : idx == 1 ? gfx_measurestr("G", w, h) :
+  idx == 2 ? gfx_measurestr("D", w, h) : idx == 3 ? gfx_measurestr("A", w, h) :
+  idx == 4 ? gfx_measurestr("E", w, h) : idx == 5 ? gfx_measurestr("B", w, h) :
+  idx == 6 ? gfx_measurestr("F#", w, h): idx == 7 ? gfx_measurestr("Db", w, h) :
+  idx == 8 ? gfx_measurestr("Ab", w, h): idx == 9 ? gfx_measurestr("Eb", w, h) :
+  idx == 10? gfx_measurestr("Bb", w, h): gfx_measurestr("F", w, h);
+
+  gfx_x = x_maj - w/2; gfx_y = y_maj - h/2;
+  draw_maj_name(i);
+
+  // Нумерація ступенів для мажорного кола
+  draw_circle_roman(get_scale_degree(pM[i], key_root, selected_mode_idx), x_maj, y_maj + h/2 + 2, 0, is_maj_played);
+
+  // === МІНОРНЕ КОЛО (Внутрішнє) ===
+  x_min = cx + cos(angle) * r_min;
+  y_min = cy + sin(angle) * r_min;
+
+  is_hover_min = pow(mouse_x - x_min, 2) + pow(mouse_y - y_min, 2) <= pow(35, 2);
+  is_lclick_min = !show_chord_browser && !show_palette && !show_suggestions && (mouse_cap & 1) && is_hover_min; // Тепер лівий клік для гри
+
+  is_lclick_min ? (
+    c_note_m = pMin[i];
+    c_note_m < key_root ? c_note_m += 12; // Зміщуємо в октаву відносно центру
+    new_req_n1 = 48 + (play_octave_offset * 12) + c_note_m;
+    v_c = selected_voicing == 0 ? 2 : selected_voicing;
+
+    v_c == 1 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 11 : -1; ) :
+    v_c == 2 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 3 ? ( new_req_n2 = new_req_n1 + 3; new_req_n3 = new_req_n1 + 6; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 9 : -1; ) :
+    v_c == 4 ? ( new_req_n2 = new_req_n1 + 4; new_req_n3 = new_req_n1 + 8; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 5 ? ( new_req_n2 = new_req_n1 + 2; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    v_c == 6 ? ( new_req_n2 = new_req_n1 + 5; new_req_n3 = new_req_n1 + 7; new_req_n4 = selected_extension >= 1 ? new_req_n1 + 10 : -1; ) :
+    ( new_req_n2 = new_req_n1 + 7; new_req_n3 = -1; new_req_n4 = -1; );
+
+    new_req_n5 = selected_extension == 2 && v_c != 7 ? new_req_n1 + 14 : -1;
+  );
+
+  is_min_played = (current_btype == 1 && current_root == pMin[i]) || is_lclick_min;
+
+  // Вираховуємо маску акорду (мінорний тризвук) для перевірки до вибраних нот
+  chord_mask_min = (1 << pMin[i]) | (1 << ((pMin[i]+3)%12)) | (1 << ((pMin[i]+7)%12));
+  has_usr_match_min = usr_sel_notes_mask > 0 && ((usr_sel_notes_mask & chord_mask_min) == usr_sel_notes_mask);
+
+  // Якщо поточний мінорний акорд відповідає цій комірці - підсвічуємо
+  is_min_played ? (
+    gfx_r=0; gfx_g=0.8; gfx_b=1; gfx_a=0.9;
+    gfx_circle(x_min, y_min, 35, 1, 1);
+    gfx_r=0; gfx_g=0; gfx_b=0; gfx_a=1; // Чорний текст
+  ) : has_usr_match_min ? (
+    gfx_r=0.2; gfx_g=0.8; gfx_b=0.2; gfx_a=0.85; // Зелений для збігу з вибраними нотами
+    gfx_circle(x_min, y_min, 35, 1, 1);
+    gfx_r=0.0; gfx_g=0.0; gfx_b=0.0; gfx_a=1;
+  ) : in_cluster ? (
+    gfx_r=0.25; gfx_g=0.25; gfx_b=0.28; gfx_a=1; // Темно-сірий фон для діатонічних акордів
+    gfx_circle(x_min, y_min, 35, 1, 1);
+    gfx_r=0.8; gfx_g=0.85; gfx_b=0.9; gfx_a=1; // Трохи блакитний/білий текст
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1; // Звичайний приглушений текст
+  );
+
+  // Центруємо і малюємо мінорний текст
+  gfx_x = x_min; gfx_y = y_min;
+  idx == 0 ? gfx_measurestr("Am", w, h) : idx == 1 ? gfx_measurestr("Em", w, h) :
+  idx == 2 ? gfx_measurestr("Bm", w, h) : idx == 3 ? gfx_measurestr("F#m", w, h) :
+  idx == 4 ? gfx_measurestr("C#m", w, h): idx == 5 ? gfx_measurestr("G#m", w, h) :
+  idx == 6 ? gfx_measurestr("D#m", w, h): idx == 7 ? gfx_measurestr("Bbm", w, h) :
+  idx == 8 ? gfx_measurestr("Fm", w, h) : idx == 9 ? gfx_measurestr("Cm", w, h) :
+  idx == 10? gfx_measurestr("Gm", w, h) : gfx_measurestr("Dm", w, h);
+
+  gfx_x = x_min - w/2; gfx_y = y_min - h/2;
+  draw_min_name(i);
+
+  // Нумерація ступенів для мінорного кола
+  draw_circle_roman(get_scale_degree(pMin[i], key_root, selected_mode_idx), x_min, y_min + h/2 + 2, 1, is_min_played);
+
+  i += 1;
+);
+
+// Обчислюємо тоніку відносно обраного сектора (Relative Modes підхід)
+  mode_offs = selected_mode_idx == 1 ? 2 :
+              selected_mode_idx == 2 ? 4 :
+              selected_mode_idx == 3 ? 5 :
+              selected_mode_idx == 4 ? 7 :
+              selected_mode_idx == 5 ? 9 :
+              selected_mode_idx == 6 ? 11 :
+              selected_mode_idx == 7 ? 9 :
+              selected_mode_idx == 8 ? 0 :
+              selected_mode_idx == 9 ? 0 :
+              selected_mode_idx == 10 ? 0 :
+              selected_mode_idx == 11 ? 0 : 0;
+
+key_root = (pM[selected_center_idx] + mode_offs) % 12;
+
+// Відмальовка точного знайденого акорду в центрі
+current_root >= 0 ? (
+  gfx_setfont(1, "Arial", 40, 'b'); // Збільшений та жирний шрифт для центрового акорду
+  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+
+  // Просто малюємо приблизно по центру
+  gfx_x = cx - 35; // Змістив ліворуч через більший розмір тексту
+  gfx_y = cy - 25;
+  draw_root_name(current_root);
+  draw_chord_ext(current_type);
+
+  // Визначаємо ступінь акорду в поточній тональності
+  deg = get_scale_degree(current_root, key_root, selected_mode_idx);
+
+  deg > 0 ? (
+    gfx_setfont(1, "Arial", 22); // Менший шрифт для цифри
+    gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+    gfx_drawstr(" (");
+
+    // В музичній теорії мінорні/зменшені акорди позначають малими літерами
+    current_btype == 1 ? (
+      deg == 1 ? gfx_drawstr("i") :
+      deg == 2 ? gfx_drawstr("ii") :
+      deg == 3 ? gfx_drawstr("iii") :
+      deg == 4 ? gfx_drawstr("iv") :
+      deg == 5 ? gfx_drawstr("v") :
+      deg == 6 ? gfx_drawstr("vi") :
+      deg == 7 ? gfx_drawstr("vii") : 0;
+    ) : (
+      deg == 1 ? gfx_drawstr("I") :
+      deg == 2 ? gfx_drawstr("II") :
+      deg == 3 ? gfx_drawstr("III") :
+      deg == 4 ? gfx_drawstr("IV") :
+      deg == 5 ? gfx_drawstr("V") :
+      deg == 6 ? gfx_drawstr("VI") :
+      deg == 7 ? gfx_drawstr("VII") : 0;
+    );
+    gfx_drawstr(")");
+  );
+);
+

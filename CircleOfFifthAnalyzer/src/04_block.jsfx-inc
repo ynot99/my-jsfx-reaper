@@ -1,0 +1,287 @@
+@block
+// Читання MIDI-повідомлень
+while(midirecv(offset, msg1, msg2, msg3)) (
+  status = msg1 & 240;
+  note = msg2 % 12; // Зводимо до 12 півтонів (pitch class)
+  vel = msg3;
+
+  // Note On
+  status == 144 && vel > 0 ? (
+    notes_held[note] += 1;
+    actual_notes_held[msg2] += 1;
+      ) :
+      // Note Off
+      status == 128 || (status == 144 && vel == 0) ? (
+        notes_held[note] -= 1;
+        notes_held[note] < 0 ? notes_held[note] = 0;
+        actual_notes_held[msg2] -= 1;
+        actual_notes_held[msg2] < 0 ? actual_notes_held[msg2] = 0;
+      );
+
+      // Пропускаємо MIDI далі по ланцюжку треку
+      midisend(offset, msg1, msg2, msg3);
+    );
+
+// Відправка MIDI з UI
+req_changed = (req_n1 != active_n1) || (req_n2 != active_n2) || (req_n3 != active_n3) || (req_n4 != active_n4) || (req_n5 != active_n5);
+req_changed ? (
+  // 1. Зупиняємо старі ноти, які встигли зігратись (залежно від кроку струму)
+  active_n1 != -1 && strum_step > 0 ? (midisend(0, 128, active_n1, 0); notes_held[active_n1 % 12] -= 1; );
+  active_n2 != -1 && strum_step > 1 ? (midisend(0, 128, active_n2, 0); notes_held[active_n2 % 12] -= 1; );
+  active_n3 != -1 && strum_step > 2 ? (midisend(0, 128, active_n3, 0); notes_held[active_n3 % 12] -= 1; );
+  active_n4 != -1 && strum_step > 3 ? (midisend(0, 128, active_n4, 0); notes_held[active_n4 % 12] -= 1; );
+  active_n5 != -1 && strum_step > 4 ? (midisend(0, 128, active_n5, 0); notes_held[active_n5 % 12] -= 1; );
+
+  // 2. Оновлюємо активні ноти
+  active_n1 = req_n1;
+  active_n2 = req_n2;
+  active_n3 = req_n3;
+  active_n4 = req_n4;
+  active_n5 = req_n5;
+
+  // 3. Запускаємо нові
+  active_n1 == -1 ? (
+    strum_step = 5; // Нічого грати, акорд відпущено
+  ) : selected_strum == 0 ? (
+    // Граємо все відразу
+    strum_step = 5;
+    active_n1 != -1 ? (midisend(0, 144, active_n1, 100); notes_held[active_n1 % 12] += 1; );
+    active_n2 != -1 ? (midisend(0, 144, active_n2, 100); notes_held[active_n2 % 12] += 1; );
+    active_n3 != -1 ? (midisend(0, 144, active_n3, 100); notes_held[active_n3 % 12] += 1; );
+    active_n4 != -1 ? (midisend(0, 144, active_n4, 100); notes_held[active_n4 % 12] += 1; );
+    active_n5 != -1 ? (midisend(0, 144, active_n5, 100); notes_held[active_n5 % 12] += 1; );
+  ) : (
+    // Запускаємо Strum
+    strum_step = 0;
+    strum_timer = 0; // Перша нота зіграє без затримки
+  );
+
+  idx_c=0; loop(12, notes_held[idx_c] < 0 ? notes_held[idx_c] = 0; idx_c+=1;);
+);
+
+// Strum процесор (відкладене відтворення нот через затримку)
+strum_step < 5 ? (
+  s_off = 0;
+  while(strum_step < 5 && s_off < samplesblock) (
+    strum_timer <= 0 ? (
+      strum_step == 0 && active_n1 != -1 ? (midisend(s_off, 144, active_n1, 100); notes_held[active_n1 % 12] += 1;);
+      strum_step == 1 && active_n2 != -1 ? (midisend(s_off, 144, active_n2, 100); notes_held[active_n2 % 12] += 1;);
+      strum_step == 2 && active_n3 != -1 ? (midisend(s_off, 144, active_n3, 100); notes_held[active_n3 % 12] += 1;);
+      strum_step == 3 && active_n4 != -1 ? (midisend(s_off, 144, active_n4, 100); notes_held[active_n4 % 12] += 1;);
+      strum_step == 4 && active_n5 != -1 ? (midisend(s_off, 144, active_n5, 100); notes_held[active_n5 % 12] += 1;);
+
+      strum_step += 1;
+      // Встановлюємо затримку до наступної ноти
+      strum_timer = selected_strum == 1 ? floor(0.018 * srate) :
+                    selected_strum == 2 ? floor(0.040 * srate) : floor(0.080 * srate);
+    ) : (
+      jump = min(strum_timer, samplesblock - s_off);
+      strum_timer -= jump;
+      s_off += jump;
+    );
+  );
+);
+
+// Аналіз акордів на основі активних нот
+current_root = -1;
+current_type = -1;
+current_btype = -1;
+
+lowest_note_pc = -1;
+b_idx = 0;
+loop(128, actual_notes_held[b_idx] > 0 ? (lowest_note_pc = b_idx % 12; b_idx = 129;); b_idx += 1;);
+
+match_score = 0;
+r = 0;
+loop(12,
+  h1  = notes_held[r] > 0;
+  h2  = notes_held[(r+2)%12] > 0;
+  h3b = notes_held[(r+3)%12] > 0;
+  h3  = notes_held[(r+4)%12] > 0;
+  h4  = notes_held[(r+5)%12] > 0;
+  h5b = notes_held[(r+6)%12] > 0;
+  h5  = notes_held[(r+7)%12] > 0;
+  h5s = notes_held[(r+8)%12] > 0;
+  h6  = notes_held[(r+9)%12] > 0;
+  h7b = notes_held[(r+10)%12] > 0;
+  h7  = notes_held[(r+11)%12] > 0;
+
+  bass_bonus = (r == lowest_note_pc) ? 1 : 0;
+
+  h1 ? (
+    // 5 (Power chord: 1, 5)
+    h5 && !h3 && !h3b ? (
+      match_score < 3 + bass_bonus ? ( match_score = 3 + bass_bonus; current_root = r; current_type = 6; current_btype = 0; );
+    );
+
+    // Sus2 (1, 2, 5)
+    h2 && h5 && !h3 && !h3b ? (
+      match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 4; current_btype = 0; );
+    );
+
+    // Sus4 (1, 4, 5)
+    h4 && h5 && !h3 && !h3b ? (
+      match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 5; current_btype = 0; );
+      h7b ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 20; current_btype = 0; ) : 0; ) : 0; // 7sus4
+    );
+
+    // Dim (1, b3, b5)
+    h3b && h5b ? (
+      match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 2; current_btype = 1; );
+      h7b ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 21; current_btype = 1; ) : 0; ) : 0; // m7b5
+      h6 ? ( match_score < 7 + bass_bonus ? ( match_score = 7 + bass_bonus; current_root = r; current_type = 22; current_btype = 1; ) : 0; ) : 0; // dim7 (h6 is double flat 7)
+    );
+
+    // Aug (1, 3, #5)
+    h3 && h5s ? (
+      match_score < 5 + bass_bonus ? ( match_score = 5 + bass_bonus; current_root = r; current_type = 3; current_btype = 0; );
+    );
+
+    // Min (allows omitting 5th if 7th is present)
+    h3b && !h5b && (h5 || h7b || h7) ? (
+      c_score = h5 ? 5 : 3;
+      match_score < c_score + bass_bonus ? ( match_score = c_score + bass_bonus; current_root = r; current_type = 1; current_btype = 1; );
+      h7b ? (
+        h4 ? (
+           s_val = c_score + 4 + (h2?2:0);
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 14; current_btype = 1; ) : 0;
+        ) :
+        h2 ? (
+           s_val = c_score + 4;
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 11; current_btype = 1; ) : 0;
+        ) :
+        (
+           s_val = c_score + 2;
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 8; current_btype = 1; ) : 0;
+        );
+      ) :
+      h7 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 23; current_btype = 1; ) : 0; ) : 0; // mM7
+      h6 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 17; current_btype = 1; ) : 0; ) : 0;
+      !h7 && !h7b && h2 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 19; current_btype = 1; ) : 0; ) : 0;
+      !h7 && !h7b && !h2 && h4 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 25; current_btype = 1; ) : 0; ) : 0;
+    );
+
+    // Maj / Dom (allows omitting 5th if 7th is present)
+    h3 && (h5 || h7b || h7) ? (
+      c_score = h5 ? 5 : 3;
+      match_score < c_score + bass_bonus ? ( match_score = c_score + bass_bonus; current_root = r; current_type = 0; current_btype = 0; );
+      h7 ? (
+        h4 ? (
+           s_val = c_score + 4 + (h2?2:0);
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 13; current_btype = 0; ) : 0;
+        ) :
+        h2 ? (
+           s_val = c_score + 4;
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 10; current_btype = 0; ) : 0;
+        ) :
+        (
+           s_val = c_score + 2;
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 7; current_btype = 0; ) : 0;
+        );
+      ) : 0;
+      h6 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 16; current_btype = 0; ) : 0; ) : 0;
+      h7b ? (
+        h4 ? (
+           s_val = c_score + 4 + (h2?2:0);
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 15; current_btype = 0; ) : 0;
+        ) :
+        h2 ? (
+           s_val = c_score + 4;
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 12; current_btype = 0; ) : 0;
+        ) :
+        (
+           s_val = c_score + 2;
+           match_score < s_val + bass_bonus ? ( match_score = s_val + bass_bonus; current_root = r; current_type = 9; current_btype = 0; ) : 0;
+        );
+      ) : 0;
+      !h7 && !h7b && h2 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 18; current_btype = 0; ) : 0; ) : 0;
+      !h7 && !h7b && !h2 && h4 ? ( match_score < c_score + 2 + bass_bonus ? ( match_score = c_score + 2 + bass_bonus; current_root = r; current_type = 24; current_btype = 0; ) : 0; ) : 0;
+    );
+  );
+
+  r += 1;
+);
+
+
+play_scale_trigger == 1 ? (
+  play_scale_trigger = 0;
+  s_i = 0;
+  n_idx = 0;
+
+  // Calculate relative root same as gfx
+  sc_offs = selected_mode_idx == 1 ? 2 :
+            selected_mode_idx == 2 ? 4 :
+            selected_mode_idx == 3 ? 5 :
+            selected_mode_idx == 4 ? 7 :
+            selected_mode_idx == 5 ? 9 :
+            selected_mode_idx == 6 ? 11 :
+            selected_mode_idx == 7 ? 9 :
+            selected_mode_idx == 8 ? 0 :
+            selected_mode_idx == 9 ? 0 :
+            selected_mode_idx == 10 ? 0 :
+            selected_mode_idx == 11 ? 0 : 0;
+  sc_r = (pM[selected_center_idx] + sc_offs) % 12;
+
+  loop(12,
+     is_in_scale(s_i, sc_r, selected_mode_idx) ? (
+         c_n = 60 + (play_octave_offset * 12) + s_i;
+         s_i < sc_r ? c_n += 12;
+         scale_play_notes[n_idx] = c_n;
+         n_idx += 1;
+     );
+     s_i += 1;
+  );
+
+  i = 0; loop(n_idx-1,
+     j = i+1; loop(n_idx-1-i,
+        scale_play_notes[i] > scale_play_notes[j] ? (
+            t_s = scale_play_notes[i];
+            scale_play_notes[i] = scale_play_notes[j];
+            scale_play_notes[j] = t_s;
+        );
+        j+=1;
+     );
+     i+=1;
+  );
+  scale_play_notes[n_idx] = scale_play_notes[0] + 12;
+  n_idx += 1;
+
+  scale_play_max = n_idx;
+  scale_play_step = 0;
+  scale_play_timer = 0;
+  scale_active_note != -1 ? (
+      midisend(0, 128, scale_active_note, 0);
+      notes_held[scale_active_note % 12] -= 1;
+  );
+  scale_active_note = -1;
+);
+
+scale_play_step < scale_play_max ? (
+  s_off = 0;
+  while(scale_play_step < scale_play_max && s_off < samplesblock) (
+    scale_play_timer <= 0 ? (
+      scale_active_note != -1 ? (
+          midisend(s_off, 128, scale_active_note, 0);
+          notes_held[scale_active_note % 12] -= 1;
+      );
+
+      scale_active_note = scale_play_notes[scale_play_step];
+      midisend(s_off, 144, scale_active_note, 100);
+      notes_held[scale_active_note % 12] += 1;
+
+      scale_play_step += 1;
+      scale_play_timer = floor(0.15 * srate);
+    ) : (
+      jump = min(scale_play_timer, samplesblock - s_off);
+      scale_play_timer -= jump;
+      s_off += jump;
+    );
+  );
+) : (
+  scale_active_note != -1 && scale_play_timer <= 0 ? (
+      midisend(0, 128, scale_active_note, 0);
+      notes_held[scale_active_note % 12] -= 1;
+      scale_active_note = -1;
+  );
+  scale_active_note != -1 ? scale_play_timer -= samplesblock;
+);

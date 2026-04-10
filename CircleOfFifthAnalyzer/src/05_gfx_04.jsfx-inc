@@ -1,0 +1,3 @@
+// === CHORD VOICING MENU (Left, below modes) ===
+v_y_start = 140;
+gfx_setfont(1, "Arial", 14, 'b');

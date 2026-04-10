@@ -1,0 +1,205 @@
+// === КНОПКА PLAY SELECTED ТА FIND CHORDS (Над піаніно) ===
+play_cust_w = 100;
+play_single_w = 100;
+find_chords_w = 100;
+pal_btn_w = 100;
+play_scale_w = 100;
+sug_btn_w = 100;
+play_cust_h = 26;
+total_w = play_cust_w + 10 + play_single_w + 10 + play_scale_w + 10 + find_chords_w + 10 + pal_btn_w + 10 + sug_btn_w;
+play_cust_x = (gfx_w - total_w) / 2;
+play_single_x = play_cust_x + play_cust_w + 10;
+play_scale_x = play_single_x + play_single_w + 10;
+find_chords_x = play_scale_x + play_scale_w + 10;
+pal_btn_x = find_chords_x + find_chords_w + 10;
+sug_btn_x = pal_btn_x + pal_btn_w + 10;
+play_cust_y = gfx_h - kb_h - play_cust_h - 10;
+
+// Кнопка Auto Play
+is_hover_auto_play = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_auto_play && mouse_click ? (
+  auto_play_enabled = auto_play_enabled == 1 ? 0 : 1;
+  mouse_click = 0;
+);
+
+// Кнопка Single Note
+is_hover_single = mouse_x >= play_single_x && mouse_x <= play_single_x + play_single_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_single && mouse_click ? (
+  play_single_note_mode = play_single_note_mode == 1 ? 0 : 1;
+  mouse_click = 0;
+);
+
+// Кнопка Play Scale
+is_hover_scale = mouse_x >= play_scale_x && mouse_x <= play_scale_x + play_scale_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_scale && mouse_click ? (
+  play_scale_trigger = 1;
+  mouse_click = 0;
+);
+
+auto_play_timer > 0 ? auto_play_timer -= 1;
+
+auto_play_mask = usr_sel_notes_mask;
+// Якщо лівий клік на піаніно в режимі "Single Note", гратимемо тільки маску натиснутої ноти
+(mouse_cap & 1) && play_single_note_mode == 1 && hovered_pc >= 0 ? (
+  auto_play_mask = (1 << hovered_pc);
+);
+
+auto_play_mask > 0 && auto_play_timer > 0 ? (
+  c_idx_p = 0; n_count = 0;
+  loop(12,
+    (auto_play_mask & (1 << c_idx_p)) ? (
+      n_val = 60 + (play_octave_offset * 12) + c_idx_p;
+
+      // Зберігаємо перші 5 вибраних нот (движок підтримує до 5 одночасних голосів)
+      n_count == 0 ? new_req_n1 = n_val :
+      n_count == 1 ? new_req_n2 = n_val :
+      n_count == 2 ? new_req_n3 = n_val :
+      n_count == 3 ? new_req_n4 = n_val :
+      n_count == 4 ? new_req_n5 = n_val;
+
+      n_count += 1;
+    );
+    c_idx_p += 1;
+  );
+);
+
+auto_play_enabled == 1 ? (
+  is_hover_auto_play ? (gfx_r=0.2; gfx_g=0.6; gfx_b=0.2; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.45; gfx_b=0.15; gfx_a=1;);
+) : (
+  is_hover_auto_play ? (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;);
+);
+
+gfx_rect(play_cust_x, play_cust_y, play_cust_w, play_cust_h);
+
+// Рендер кнопки Single Note Mode
+play_single_note_mode == 1 ? (
+  is_hover_single ? (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.45; gfx_b=0.65; gfx_a=1;);
+) : (
+  is_hover_single ? (gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;) : (gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;);
+);
+gfx_rect(play_single_x, play_cust_y, play_single_w, play_cust_h);
+
+gfx_setfont(1, "Arial", 14);
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+auto_play_enabled == 1 ? (
+  gfx_measurestr("Auto-Play: ON", psc_w, psc_h);
+  gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("Auto-Play: ON");
+) : (
+  gfx_measurestr("Auto-Play: OFF", psc_w, psc_h);
+  gfx_x = play_cust_x + (play_cust_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("Auto-Play: OFF");
+);
+
+// Текст другої кнопки
+play_single_note_mode == 1 ? (
+  gfx_measurestr("L-Click: Note", psc_w, psc_h);
+  gfx_x = play_single_x + (play_single_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("L-Click: Note");
+) : (
+  gfx_measurestr("L-Click: Chord", psc_w, psc_h);
+  gfx_x = play_single_x + (play_single_w - psc_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - psc_h) / 2;
+  gfx_drawstr("L-Click: Chord");
+);
+
+  // Play Scale Button
+  !show_chord_browser && !show_palette && !show_suggestions && is_hover_scale && (mouse_cap & 1) ? (
+    gfx_r=0.6; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+  ) : is_hover_scale ? (
+    gfx_r=0.4; gfx_g=0.25; gfx_b=0.6; gfx_a=1;
+  ) : (
+    gfx_r=0.25; gfx_g=0.15; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_rect(play_scale_x, play_cust_y, play_scale_w, play_cust_h);
+
+  gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+  gfx_measurestr("Play Scale", ps_w, ps_h);
+  gfx_x = play_scale_x + (play_scale_w - ps_w) / 2;
+  gfx_y = play_cust_y + (play_cust_h - ps_h) / 2;
+  gfx_drawstr("Play Scale");
+
+
+// Кнопка Find Chords (завжди активна)
+is_hover_find = mouse_x >= find_chords_x && mouse_x <= find_chords_x + find_chords_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_click_find = !show_chord_browser && !show_palette && !show_suggestions && is_hover_find && mouse_click;
+
+is_click_find ? (
+  show_chord_browser = 1;
+);
+
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_find && (mouse_cap & 1) ? (
+  gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+) : is_hover_find ? (
+  gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+) : (
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+);
+
+gfx_rect(find_chords_x, play_cust_y, find_chords_w, play_cust_h);
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+gfx_measurestr("Find Chords", fc_w, fc_h);
+gfx_x = find_chords_x + (find_chords_w - fc_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - fc_h) / 2;
+gfx_drawstr("Find Chords");
+
+// Кнопка Chord Palette
+is_hover_pal = mouse_x >= pal_btn_x && mouse_x <= pal_btn_x + pal_btn_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_click_pal = !show_chord_browser && !show_palette && !show_suggestions && is_hover_pal && mouse_click;
+
+is_click_pal ? (
+  show_palette = 1;
+);
+
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_pal && (mouse_cap & 1) ? (
+  gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+) : is_hover_pal ? (
+  gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+) : (
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+);
+
+gfx_rect(pal_btn_x, play_cust_y, pal_btn_w, play_cust_h);
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+gfx_measurestr("Chord Palette", cp_w, cp_h);
+gfx_x = pal_btn_x + (pal_btn_w - cp_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - cp_h) / 2;
+gfx_drawstr("Chord Palette");
+
+// Кнопка Suggest Next
+is_hover_sug = mouse_x >= sug_btn_x && mouse_x <= sug_btn_x + sug_btn_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_click_sug = !show_chord_browser && !show_palette && !show_suggestions && is_hover_sug && mouse_click;
+
+is_click_sug ? (
+  show_suggestions = 1;
+  last_suggest_root = global_last_root;
+  last_suggest_btype = global_last_btype;
+  
+  // Ініціалізація трекера поточного акорду тим самим значенням
+  last_played_s_r = last_suggest_root;
+  last_played_s_t = last_suggest_btype == 0 ? 0 : 1;
+  last_played_s_real_m = last_played_s_t == 0 ? 
+    ((1 << last_played_s_r) | (1 << ((last_played_s_r+4)%12)) | (1 << ((last_played_s_r+7)%12))) :
+    ((1 << last_played_s_r) | (1 << ((last_played_s_r+3)%12)) | (1 << ((last_played_s_r+7)%12)));
+);
+
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_sug && (mouse_cap & 1) ? (
+  gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+) : is_hover_sug ? (
+  gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+) : (
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+);
+
+gfx_rect(sug_btn_x, play_cust_y, sug_btn_w, play_cust_h);
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+gfx_measurestr("Suggest Next", sn_w, sn_h);
+gfx_x = sug_btn_x + (sug_btn_w - sn_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - sn_h) / 2;
+gfx_drawstr("Suggest Next");

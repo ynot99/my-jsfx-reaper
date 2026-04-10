@@ -1,0 +1,22 @@
+// === EXTENSIONS MENU (Left, below Chord Type) ===
+ext_y_start = 290;
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_x = 10; gfx_y = ext_y_start;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_drawstr("Extensions:");
+
+gfx_setfont(1, "Arial", 14);
+e_idx = 0;
+loop(3,
+  e_y = ext_y_start + 20 + e_idx * 16;
+  e_idx == selected_extension ? (
+    gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+  ) : (
+    gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+  );
+  gfx_x = 10; gfx_y = e_y;
+  e_idx == 0 ? gfx_drawstr("None (Triads)") :
+  e_idx == 1 ? gfx_drawstr("Add 7th") : gfx_drawstr("Add 9th");
+  e_idx += 1;
+);
+

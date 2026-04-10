@@ -1,0 +1,15 @@
+@serialize
+// Зберігає стан акордової палітри у файлі проєкту чи пресетах REAPER.
+// Таким чином можна зробити "Save Preset" і поділитися акордами.
+file_var(0, pal_cnt);
+pal_cnt > 0 ? (
+  file_mem(0, pal_r, pal_cnt);
+  file_mem(0, pal_t, pal_cnt);
+  file_mem(0, pal_m, pal_cnt);
+);
+
+file_var(0, auto_play_enabled);
+file_var(0, play_single_note_mode);
+file_var(0, chord_filter_idx);
+file_var(0, chord_filter_in_scale);
+

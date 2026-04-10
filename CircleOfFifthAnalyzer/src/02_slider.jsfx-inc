@@ -1,0 +1,10 @@
+@slider
+selected_center_idx = slider1;
+selected_mode_idx = slider2;
+selected_voicing = slider3;
+selected_extension = slider4;
+selected_strum = slider5;
+play_octave_offset = slider6;
+selected_inversion = slider7;
+show_suggestions = slider8;
+

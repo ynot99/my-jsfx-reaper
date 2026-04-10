@@ -1,0 +1,19 @@
+// === MODES MENU (Top Left) ===
+gfx_setfont(1, "Arial", 16);
+m_idx = 0;
+  loop(12,
+    m_col = floor(m_idx / 6);
+    m_row = m_idx % 6;
+    m_y = 10 + m_row * 20;
+    m_x = 10 + m_col * 110;
+
+    m_idx == selected_mode_idx ? (
+      gfx_r=1; gfx_g=0.7; gfx_b=0; gfx_a=1;
+    ) : (
+      gfx_r=0.4; gfx_g=0.4; gfx_b=0.4; gfx_a=1;
+    );
+    gfx_x = m_x; gfx_y = m_y;
+      draw_mode_name(m_idx);
+      m_idx += 1;
+    );
+

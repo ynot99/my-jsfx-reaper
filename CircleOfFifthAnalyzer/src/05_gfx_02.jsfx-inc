@@ -1,0 +1,121 @@
+// === КНОПКИ ВПРАВО-ВЛІВО ДЛЯ ОКТАВИ ===
+oct_y = panel_y + 20;
+gfx_x = panel_x - 5; gfx_y = oct_y;
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_setfont(1, "Arial", 14);
+gfx_drawstr("Octave:  ");
+
+// Кнопка "<"
+btn_lx = gfx_x;
+gfx_drawstr("<  ");
+mouse_click && !show_chord_browser && !show_palette && !show_suggestions && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_lx && mouse_x <= btn_lx + 20 ? (
+  play_octave_offset = max(-3, play_octave_offset - 1);
+  slider6 = play_octave_offset; slider_automate(slider6);
+);
+
+// Текст числа
+play_octave_offset > 0 ? gfx_drawstr("+");
+gfx_drawnumber(play_octave_offset, 0);
+gfx_drawstr("  ");
+
+// Кнопка ">"
+btn_rx = gfx_x;
+gfx_drawstr(">");
+mouse_click && !show_chord_browser && !show_palette && !show_suggestions && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_rx && mouse_x <= btn_rx + 20 ? (
+  play_octave_offset = min(3, play_octave_offset + 1);
+  slider6 = play_octave_offset; slider_automate(slider6);
+);
+
+new_req_n1 = -1; new_req_n2 = -1; new_req_n3 = -1; new_req_n4 = -1; new_req_n5 = -1;
+new_req_vel = 100;
+
+d_idx = 0;
+loop(7,
+  btn_y = panel_y + 45 + d_idx * 30;
+  btn_h = 26;
+
+  n1 = 48 + (play_octave_offset * 12) + key_root + get_mode_offset(selected_mode_idx, d_idx);
+  n4 = -1; n5 = -1;
+
+  selected_voicing == 0 ? (
+    n2 = 48 + (play_octave_offset * 12) + key_root + get_mode_offset(selected_mode_idx, d_idx+2) + (d_idx+2>=7 ? 12 : 0);
+    n3 = 48 + (play_octave_offset * 12) + key_root + get_mode_offset(selected_mode_idx, d_idx+4) + (d_idx+4>=7 ? 12 : 0);
+    i3 = n2 - n1; i5 = n3 - n1;
+    type_str = i5 == 6 ? "dim" : (i3 == 3 ? "m" : "");
+    is_min = (i3 == 3);
+    is_dim = (i5 == 6);
+
+    selected_extension >= 1 ? (
+      n4 = 48 + (play_octave_offset * 12) + key_root + get_mode_offset(selected_mode_idx, d_idx+6) + (d_idx+6>=7 ? 12 : 0);
+      i7 = n4 - n1;
+      type_str = i5 == 6 ? "m7b5" : (i3 == 3 ? "m7" : (i7 == 11 ? "maj7" : "7"));
+      is_dim = 0;
+    );
+    selected_extension == 2 ? (
+      n5 = 48 + (play_octave_offset * 12) + key_root + get_mode_offset(selected_mode_idx, d_idx+8) + (d_idx+8>=14 ? 24 : 12);
+      type_str = i5 == 6 ? "m9b5" : (i3 == 3 ? "m9" : (i7 == 11 ? "maj9" : "9"));
+    );
+  ) : (
+    selected_voicing == 1 ? ( n2 = n1 + 4; n3 = n1 + 7; type_str = selected_extension==0?"maj":selected_extension==1?"maj7":"maj9"; n4=selected_extension>=1?n1+11:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    selected_voicing == 2 ? ( n2 = n1 + 3; n3 = n1 + 7; type_str = selected_extension==0?"m":selected_extension==1?"m7":"m9";     n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=1; is_dim=0; ) :
+    selected_voicing == 3 ? ( n2 = n1 + 3; n3 = n1 + 6; type_str = selected_extension==0?"dim":selected_extension==1?"dim7":"dim9"; n4=selected_extension>=1?n1+9:-1;  n5=selected_extension==2?n1+14:-1; is_min=1; is_dim=1; ) :
+    selected_voicing == 4 ? ( n2 = n1 + 4; n3 = n1 + 8; type_str = selected_extension==0?"aug":selected_extension==1?"aug7":"aug9"; n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    selected_voicing == 5 ? ( n2 = n1 + 2; n3 = n1 + 7; type_str = selected_extension==0?"sus2":selected_extension==1?"sus2/7":"sus2/9"; n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    selected_voicing == 6 ? ( n2 = n1 + 5; n3 = n1 + 7; type_str = selected_extension==0?"sus4":selected_extension==1?"sus4/7":"sus4/9"; n4=selected_extension>=1?n1+10:-1; n5=selected_extension==2?n1+14:-1; is_min=0; is_dim=0; ) :
+    ( n2 = n1 + 7; n3 = -1; type_str = "5"; is_min = 0; is_dim = 0; ); // Power chord (no 3rd)
+  );
+
+  is_hover = mouse_x >= panel_x && mouse_x <= panel_x + panel_w && mouse_y >= btn_y && mouse_y <= btn_y + btn_h;
+  is_down = !show_chord_browser && !show_palette && !show_suggestions && is_hover && (mouse_cap & 1);
+
+  btn_c_mask = 0;
+  n1 != -1 ? btn_c_mask |= (1 << (n1 % 12)) : 0;
+  n2 != -1 ? btn_c_mask |= (1 << (n2 % 12)) : 0;
+  n3 != -1 ? btn_c_mask |= (1 << (n3 % 12)) : 0;
+  n4 != -1 ? btn_c_mask |= (1 << (n4 % 12)) : 0;
+  n5 != -1 ? btn_c_mask |= (1 << (n5 % 12)) : 0;
+
+  has_usr_btn_match = usr_sel_notes_mask > 0 && ((usr_sel_notes_mask & btn_c_mask) == usr_sel_notes_mask);
+
+  is_down ? (
+    new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3; new_req_n4 = n4; new_req_n5 = n5;
+    gfx_r=0.2; gfx_g=0.6; gfx_b=1.0; gfx_a=0.9;
+  ) : is_hover ? (
+    gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+  ) : has_usr_btn_match ? (
+    gfx_r=0.2; gfx_g=0.8; gfx_b=0.2; gfx_a=0.85; // Зелений для збігу з вибраними нотами
+  ) : (
+    gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+  );
+
+  gfx_rect(panel_x, btn_y, panel_w, btn_h);
+
+  gfx_r=0.8; gfx_g=0.8; gfx_b=0.8; gfx_a=1;
+  has_usr_btn_match && !is_down && !is_hover ? ( gfx_r=0; gfx_g=0; gfx_b=0; ); // чорний текст для зручного читання на зеленому тлі
+
+  gfx_x = panel_x + 5;
+  gfx_y = btn_y + 5;
+
+  deg_n = d_idx + 1;
+  is_min ? (
+    deg_n == 1 ? gfx_drawstr("i") : deg_n == 2 ? gfx_drawstr("ii") :
+    deg_n == 3 ? gfx_drawstr("iii") : deg_n == 4 ? gfx_drawstr("iv") :
+    deg_n == 5 ? gfx_drawstr("v") : deg_n == 6 ? gfx_drawstr("vi") : gfx_drawstr("vii");
+  ) : (
+    deg_n == 1 ? gfx_drawstr("I") : deg_n == 2 ? gfx_drawstr("II") :
+    deg_n == 3 ? gfx_drawstr("III") : deg_n == 4 ? gfx_drawstr("IV") :
+    deg_n == 5 ? gfx_drawstr("V") : deg_n == 6 ? gfx_drawstr("VI") : gfx_drawstr("VII");
+  );
+  is_dim ? gfx_drawstr("\xB0") :
+  selected_voicing == 4 ? gfx_drawstr("+") : 0;
+
+  gfx_drawstr("  ");
+  draw_root_name(n1 % 12);
+  gfx_drawstr(type_str);
+
+  d_idx += 1;
+);
+
+gfx_setfont(1, "Arial", 32, 'b');
+
+//

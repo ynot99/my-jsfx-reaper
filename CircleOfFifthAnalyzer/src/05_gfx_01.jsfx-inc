@@ -1,0 +1,10 @@
+// === ВІДМАЛЬОВКА БІЧНОЇ ПАНЕЛІ (Play Chords) ===
+panel_w = 110;
+panel_x = gfx_w - panel_w - 10;
+panel_y = 10;
+
+gfx_setfont(1, "Arial", 14, 'b');
+gfx_r=0.6; gfx_g=0.6; gfx_b=0.6; gfx_a=1;
+gfx_x = panel_x - 10; gfx_y = panel_y;
+gfx_drawstr("Play Chords:");
+

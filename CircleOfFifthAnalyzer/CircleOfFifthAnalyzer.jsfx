@@ -277,6 +277,7 @@ selected_extension = slider4;
 selected_strum = slider5;
 play_octave_offset = slider6;
 selected_inversion = slider7;
+show_suggestions = slider8;
 
 @serialize
 // Зберігає стан акордової палітри у файлі проєкту чи пресетах REAPER.
@@ -582,6 +583,23 @@ scale_play_step < scale_play_max ? (
 );
 @gfx 400 400
 
+ui_chord_override_timer > 0 ? ui_chord_override_timer -= 1;
+
+current_root != -1 ? (
+    current_root != global_last_root || current_btype != global_last_btype ? (
+        global_last_root = current_root;
+        global_last_btype = current_btype;
+        
+        ui_chord_override_timer == 0 ? (
+            global_last_s_r = current_root;
+            global_last_s_t = current_btype == 0 ? 0 : 1;
+            global_last_s_real_m = current_btype == 0 ? 
+                ((1 << current_root) | (1 << ((current_root+4)%12)) | (1 << ((current_root+7)%12))) :
+                ((1 << current_root) | (1 << ((current_root+3)%12)) | (1 << ((current_root+7)%12)));
+        );
+    );
+);
+
 // Обробка клавіатури
 while((key = gfx_getchar()) > 0) (
   // Left arrow or A/a
@@ -681,7 +699,7 @@ mouse_y >= gfx_h - kb_h ? (
 );
 
 mouse_click ? (
-  !show_chord_browser && !show_palette ? (
+  !show_chord_browser && !show_palette && !show_suggestions ? (
     // Перевіряємо кліки по меню "Modes" (у лівому верхньому куті)
   mouse_x >= 10 && mouse_x <= 220 && mouse_y >= 10 && mouse_y <= 130 ? (
     m_col = floor((mouse_x - 10) / 110);
@@ -713,7 +731,7 @@ mouse_click ? (
 );
 
 mouse_rclick ? (
-  !show_chord_browser && !show_palette ? (
+  !show_chord_browser && !show_palette && !show_suggestions ? (
     c_idx = 0;
     loop(12,
       angle = c_idx * (2 * pi / 12) - (pi / 2);
@@ -754,7 +772,7 @@ gfx_drawstr("Octave:  ");
 // Кнопка "<"
 btn_lx = gfx_x;
 gfx_drawstr("<  ");
-mouse_click && !show_chord_browser && !show_palette && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_lx && mouse_x <= btn_lx + 20 ? (
+mouse_click && !show_chord_browser && !show_palette && !show_suggestions && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_lx && mouse_x <= btn_lx + 20 ? (
   play_octave_offset = max(-3, play_octave_offset - 1);
   slider6 = play_octave_offset; slider_automate(slider6);
 );
@@ -767,7 +785,7 @@ gfx_drawstr("  ");
 // Кнопка ">"
 btn_rx = gfx_x;
 gfx_drawstr(">");
-mouse_click && !show_chord_browser && !show_palette && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_rx && mouse_x <= btn_rx + 20 ? (
+mouse_click && !show_chord_browser && !show_palette && !show_suggestions && mouse_y >= oct_y && mouse_y <= oct_y + 20 && mouse_x >= btn_rx && mouse_x <= btn_rx + 20 ? (
   play_octave_offset = min(3, play_octave_offset + 1);
   slider6 = play_octave_offset; slider_automate(slider6);
 );
@@ -812,7 +830,7 @@ loop(7,
   );
 
   is_hover = mouse_x >= panel_x && mouse_x <= panel_x + panel_w && mouse_y >= btn_y && mouse_y <= btn_y + btn_h;
-  is_down = !show_chord_browser && !show_palette && is_hover && (mouse_cap & 1);
+  is_down = !show_chord_browser && !show_palette && !show_suggestions && is_hover && (mouse_cap & 1);
 
   btn_c_mask = 0;
   n1 != -1 ? btn_c_mask |= (1 << (n1 % 12)) : 0;
@@ -1011,7 +1029,7 @@ mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
   y_maj = cy + sin(angle) * r_maj;
 
   is_hover_maj = pow(mouse_x - x_maj, 2) + pow(mouse_y - y_maj, 2) <= pow(38, 2);
-  is_lclick_maj = !show_chord_browser && !show_palette && (mouse_cap & 1) && is_hover_maj; // Тепер лівий клік для гри
+  is_lclick_maj = !show_chord_browser && !show_palette && !show_suggestions && (mouse_cap & 1) && is_hover_maj; // Тепер лівий клік для гри
 
   is_lclick_maj ? (
     c_note = pM[i];
@@ -1074,7 +1092,7 @@ mode_offs = selected_mode_idx == 1 ? 2 :  // Dorian (+2 півтони)
   y_min = cy + sin(angle) * r_min;
 
   is_hover_min = pow(mouse_x - x_min, 2) + pow(mouse_y - y_min, 2) <= pow(35, 2);
-  is_lclick_min = !show_chord_browser && !show_palette && (mouse_cap & 1) && is_hover_min; // Тепер лівий клік для гри
+  is_lclick_min = !show_chord_browser && !show_palette && !show_suggestions && (mouse_cap & 1) && is_hover_min; // Тепер лівий клік для гри
 
   is_lclick_min ? (
     c_note_m = pMin[i];
@@ -1191,37 +1209,39 @@ current_root >= 0 ? (
 );
 
 // === КНОПКА PLAY SELECTED ТА FIND CHORDS (Над піаніно) ===
-play_cust_w = 120;
-play_single_w = 120;
-find_chords_w = 120;
-pal_btn_w = 120;
-play_scale_w = 120;
+play_cust_w = 100;
+play_single_w = 100;
+find_chords_w = 100;
+pal_btn_w = 100;
+play_scale_w = 100;
+sug_btn_w = 100;
 play_cust_h = 26;
-total_w = play_cust_w + 10 + play_single_w + 10 + play_scale_w + 10 + find_chords_w + 10 + pal_btn_w;
+total_w = play_cust_w + 10 + play_single_w + 10 + play_scale_w + 10 + find_chords_w + 10 + pal_btn_w + 10 + sug_btn_w;
 play_cust_x = (gfx_w - total_w) / 2;
 play_single_x = play_cust_x + play_cust_w + 10;
 play_scale_x = play_single_x + play_single_w + 10;
 find_chords_x = play_scale_x + play_scale_w + 10;
 pal_btn_x = find_chords_x + find_chords_w + 10;
+sug_btn_x = pal_btn_x + pal_btn_w + 10;
 play_cust_y = gfx_h - kb_h - play_cust_h - 10;
 
 // Кнопка Auto Play
 is_hover_auto_play = mouse_x >= play_cust_x && mouse_x <= play_cust_x + play_cust_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-!show_chord_browser && !show_palette && is_hover_auto_play && mouse_click ? (
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_auto_play && mouse_click ? (
   auto_play_enabled = auto_play_enabled == 1 ? 0 : 1;
   mouse_click = 0;
 );
 
 // Кнопка Single Note
 is_hover_single = mouse_x >= play_single_x && mouse_x <= play_single_x + play_single_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-!show_chord_browser && !show_palette && is_hover_single && mouse_click ? (
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_single && mouse_click ? (
   play_single_note_mode = play_single_note_mode == 1 ? 0 : 1;
   mouse_click = 0;
 );
 
 // Кнопка Play Scale
 is_hover_scale = mouse_x >= play_scale_x && mouse_x <= play_scale_x + play_scale_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-!show_chord_browser && !show_palette && is_hover_scale && mouse_click ? (
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_scale && mouse_click ? (
   play_scale_trigger = 1;
   mouse_click = 0;
 );
@@ -1297,7 +1317,7 @@ play_single_note_mode == 1 ? (
 );
 
   // Play Scale Button
-  !show_chord_browser && !show_palette && is_hover_scale && (mouse_cap & 1) ? (
+  !show_chord_browser && !show_palette && !show_suggestions && is_hover_scale && (mouse_cap & 1) ? (
     gfx_r=0.6; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
   ) : is_hover_scale ? (
     gfx_r=0.4; gfx_g=0.25; gfx_b=0.6; gfx_a=1;
@@ -1315,13 +1335,13 @@ play_single_note_mode == 1 ? (
 
 // Кнопка Find Chords (завжди активна)
 is_hover_find = mouse_x >= find_chords_x && mouse_x <= find_chords_x + find_chords_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-is_click_find = !show_chord_browser && !show_palette && is_hover_find && mouse_click;
+is_click_find = !show_chord_browser && !show_palette && !show_suggestions && is_hover_find && mouse_click;
 
 is_click_find ? (
   show_chord_browser = 1;
 );
 
-!show_chord_browser && !show_palette && is_hover_find && (mouse_cap & 1) ? (
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_find && (mouse_cap & 1) ? (
   gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
 ) : is_hover_find ? (
   gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
@@ -1339,13 +1359,13 @@ gfx_drawstr("Find Chords");
 
 // Кнопка Chord Palette
 is_hover_pal = mouse_x >= pal_btn_x && mouse_x <= pal_btn_x + pal_btn_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
-is_click_pal = !show_chord_browser && !show_palette && is_hover_pal && mouse_click;
+is_click_pal = !show_chord_browser && !show_palette && !show_suggestions && is_hover_pal && mouse_click;
 
 is_click_pal ? (
   show_palette = 1;
 );
 
-!show_chord_browser && !show_palette && is_hover_pal && (mouse_cap & 1) ? (
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_pal && (mouse_cap & 1) ? (
   gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
 ) : is_hover_pal ? (
   gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
@@ -1361,6 +1381,38 @@ gfx_x = pal_btn_x + (pal_btn_w - cp_w) / 2;
 gfx_y = play_cust_y + (play_cust_h - cp_h) / 2;
 gfx_drawstr("Chord Palette");
 
+// Кнопка Suggest Next
+is_hover_sug = mouse_x >= sug_btn_x && mouse_x <= sug_btn_x + sug_btn_w && mouse_y >= play_cust_y && mouse_y <= play_cust_y + play_cust_h;
+is_click_sug = !show_chord_browser && !show_palette && !show_suggestions && is_hover_sug && mouse_click;
+
+is_click_sug ? (
+  show_suggestions = 1;
+  last_suggest_root = global_last_root;
+  last_suggest_btype = global_last_btype;
+  
+  // Ініціалізація трекера поточного акорду тим самим значенням
+  last_played_s_r = last_suggest_root;
+  last_played_s_t = last_suggest_btype == 0 ? 0 : 1;
+  last_played_s_real_m = last_played_s_t == 0 ? 
+    ((1 << last_played_s_r) | (1 << ((last_played_s_r+4)%12)) | (1 << ((last_played_s_r+7)%12))) :
+    ((1 << last_played_s_r) | (1 << ((last_played_s_r+3)%12)) | (1 << ((last_played_s_r+7)%12)));
+);
+
+!show_chord_browser && !show_palette && !show_suggestions && is_hover_sug && (mouse_cap & 1) ? (
+  gfx_r=0.2; gfx_g=0.4; gfx_b=0.8; gfx_a=0.9;
+) : is_hover_sug ? (
+  gfx_r=0.25; gfx_g=0.25; gfx_b=0.25; gfx_a=1;
+) : (
+  gfx_r=0.15; gfx_g=0.15; gfx_b=0.15; gfx_a=1;
+);
+
+gfx_rect(sug_btn_x, play_cust_y, sug_btn_w, play_cust_h);
+
+gfx_r=0.9; gfx_g=0.9; gfx_b=0.9; gfx_a=1;
+gfx_measurestr("Suggest Next", sn_w, sn_h);
+gfx_x = sug_btn_x + (sug_btn_w - sn_w) / 2;
+gfx_y = play_cust_y + (play_cust_h - sn_h) / 2;
+gfx_drawstr("Suggest Next");
 // === ПІАНІНО ===
 kb_y = gfx_h - kb_h;
 w_keys = 14;      // Малюємо рівно 2 октави (14 білих клавіш)
@@ -1444,7 +1496,368 @@ loop(w_keys - 1,
   bk_idx += 1;
 );
 
-// === OVERLAY: FIND CHORDS ===
+// === SUGGESTION OVERLAY: NEXT CHORD SUGGESTION ===
+show_suggestions ? (
+  gfx_r=0.1; gfx_g=0.1; gfx_b=0.12; gfx_a=0.95;
+  gfx_rect(0, 0, gfx_w, gfx_h - kb_h);
+
+  gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;
+  gfx_setfont(1, "Arial", 22, 'b');
+  gfx_x = 20; gfx_y = 20;
+  gfx_drawstr("Suggested Next Chords:");
+
+  // Close Button
+  gfx_setfont(1, "Arial", 16);
+  gfx_measurestr("[ Close ]", cw, ch);
+  cx_btn = gfx_w - cw - 20; cy_btn = 20;
+
+  is_hov_close = mouse_x >= cx_btn && mouse_x <= cx_btn+cw && mouse_y >= cy_btn && mouse_y <= cy_btn+ch;
+  mouse_click && is_hov_close ? ( show_suggestions = 0; mouse_click = 0; );
+
+  is_hov_close ? (gfx_r=1; gfx_g=0.4; gfx_b=0.4;) : (gfx_r=0.8; gfx_g=0.2; gfx_b=0.2;);
+  gfx_x = cx_btn; gfx_y = cy_btn;
+  gfx_drawstr("[ Close ]");
+
+  // To Palette Button
+  gfx_measurestr("[ Go to Palette ]", gp_w, gp_h);
+  gp_btn = cx_btn - gp_w - 20;
+  is_hov_gp = mouse_x >= gp_btn && mouse_x <= gp_btn+gp_w && mouse_y >= cy_btn && mouse_y <= cy_btn+gp_h;
+  mouse_click && is_hov_gp ? ( show_suggestions = 0; show_palette = 1; mouse_click = 0; );
+
+  is_hov_gp ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
+  gfx_x = gp_btn; gfx_y = cy_btn;
+  gfx_drawstr("[ Go to Palette ]");
+
+  // To Find Chords Button
+  gfx_measurestr("[ Go to Find Chords ]", sw_w, sw_h);
+  sw_btn_x = gp_btn - sw_w - 20;
+  is_hov_sw = mouse_x >= sw_btn_x && mouse_x <= sw_btn_x+sw_w && mouse_y >= cy_btn && mouse_y <= cy_btn+sw_h;
+  mouse_click && is_hov_sw ? ( show_suggestions = 0; show_chord_browser = 1; mouse_click = 0; );
+
+  is_hov_sw ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
+  gfx_x = sw_btn_x; gfx_y = cy_btn;
+  gfx_drawstr("[ Go to Find Chords ]");
+
+  // --- CURRENT CHORD HEADER ---
+  cur_x = 20;
+  cur_y = 50;
+  gfx_r=0.15; gfx_g=0.25; gfx_b=0.35; gfx_a=1;
+  gfx_rect(cur_x, cur_y, 360, 26);
+  gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;
+  gfx_x = cur_x + 5; gfx_y = cur_y + 4;
+  gfx_drawstr("Current: ");
+  // Відображаємо "Current" назву
+  last_played_s_r==0?gfx_drawstr("C"):last_played_s_r==1?gfx_drawstr("Db"):last_played_s_r==2?gfx_drawstr("D"):
+  last_played_s_r==3?gfx_drawstr("Eb"):last_played_s_r==4?gfx_drawstr("E"):last_played_s_r==5?gfx_drawstr("F"):
+  last_played_s_r==6?gfx_drawstr("F#"):last_played_s_r==7?gfx_drawstr("G"):last_played_s_r==8?gfx_drawstr("Ab"):
+  last_played_s_r==9?gfx_drawstr("A"):last_played_s_r==10?gfx_drawstr("Bb"):gfx_drawstr("B");
+  gfx_drawstr(" ");
+  last_played_s_t == 0 ? gfx_drawstr("Maj") : last_played_s_t == 1 ? gfx_drawstr("m") : last_played_s_t == 2 ? gfx_drawstr("dim") : last_played_s_t == 3 ? gfx_drawstr("aug") :
+  last_played_s_t == 4 ? gfx_drawstr("sus2") : last_played_s_t == 5 ? gfx_drawstr("sus4") : last_played_s_t == 6 ? gfx_drawstr("Maj7") : last_played_s_t == 7 ? gfx_drawstr("m7") :
+  last_played_s_t == 8 ? gfx_drawstr("7") : last_played_s_t == 9 ? gfx_drawstr("m7b5") : last_played_s_t == 10 ? gfx_drawstr("dim7") : last_played_s_t == 11 ? gfx_drawstr("mM7") :
+  last_played_s_t == 12 ? gfx_drawstr("6") : last_played_s_t == 13 ? gfx_drawstr("m6") : last_played_s_t == 14 ? gfx_drawstr("7sus4") : last_played_s_t == 15 ? gfx_drawstr("add9") :
+  last_played_s_t == 16 ? gfx_drawstr("madd9") : last_played_s_t == 17 ? gfx_drawstr("9") : last_played_s_t == 18 ? gfx_drawstr("Maj9") : last_played_s_t == 19 ? gfx_drawstr("m9") :
+  last_played_s_t == 20 ? gfx_drawstr("add11") : last_played_s_t == 21 ? gfx_drawstr("madd11") : 0;
+
+  // Buttons for Current
+  gfx_x = cur_x + 235; gfx_y = cur_y + 5;
+  gfx_measurestr("[P]", bw, bh);
+  hov_pc = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+  hov_pc ? (gfx_r=0.2; gfx_g=1; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[P]");
+
+  mouse_cap & 1 && hov_pc ? (
+      n1 = -1; n2 = -1; n3 = -1; n4 = -1; n5 = -1;
+      c_k = 0; n_id = 0;
+      loop(24,
+        (last_played_s_real_m & (1<<c_k)) ? (
+           base_n = 60 + play_octave_offset * 12 + c_k;
+           n_id == 0 ? n1 = base_n : n_id == 1 ? n2 = base_n : n_id == 2 ? n3 = base_n : n_id == 3 ? n4 = base_n : n_id == 4 ? n5 = base_n : 0;
+           n_id += 1;
+        );
+        c_k += 1;
+      );
+      new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3; new_req_n4 = n4; new_req_n5 = n5;
+      new_req_vel = 100;
+      ui_chord_override_timer = 5;
+  );
+
+  gfx_x = cur_x + 270; gfx_y = cur_y + 5;
+  gfx_measurestr("[+]", bw, bh);
+  hov_sc = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+  hov_sc ? (gfx_r=0.2; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[+]");
+
+  mouse_click && hov_sc ? (
+      is_dup = 0; j = 0;
+      loop(pal_cnt,
+        pal_r[j] == last_played_s_r && pal_t[j] == last_played_s_t ? is_dup = 1;
+        j += 1;
+      );
+      !is_dup && pal_cnt < 64 ? (
+        pal_r[pal_cnt] = last_played_s_r;
+        pal_t[pal_cnt] = last_played_s_t;
+        pal_m[pal_cnt] = last_played_s_real_m;
+        pal_cnt += 1;
+        pal_cnt_mem[0] = pal_cnt; // trigger save
+      );
+      mouse_click = 0;
+  );
+
+  gfx_x = cur_x + 305; gfx_y = cur_y + 5;
+  gfx_measurestr("[ Gen ]", bw, bh);
+  hov_gc = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+  hov_gc ? (gfx_r=0.2; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[ Gen ]");
+
+  mouse_click && hov_gc ? (
+      last_suggest_root = global_last_s_r;
+      t = global_last_s_t;
+      last_suggest_btype = (t==1 || t==2 || t==7 || t==9 || t==10 || t==11 || t==13 || t==16 || t==19 || t==21) ? 1 : 0;
+      mouse_click = 0;
+  );
+
+  // --- END CURRENT CHORD HEADER ---
+
+  // Suggestion List Area
+  gfx_setfont(1, "Arial", 18);
+  col_x = 20;
+  col_y = 90;
+  suggest_chord_count = 0;
+
+  suggest_init == 0 ? (
+     last_suggest_root = global_last_s_r;
+     t = global_last_s_t;
+     last_suggest_btype = (t==1 || t==2 || t==7 || t==9 || t==10 || t==11 || t==13 || t==16 || t==19 || t==21) ? 1 : 0;
+     suggest_init = 1;
+  );
+
+  // Sync Current Tracker continuously from global (so no manual overrides needed here)
+  last_played_s_r = global_last_s_r;
+  last_played_s_t = global_last_s_t;
+  last_played_s_real_m = global_last_s_real_m;
+
+  // Використовуємо зафіксовані значення (а не ті, що динамічно змінюються)
+  _cur_btype = last_suggest_btype;
+  _root = last_suggest_root;
+
+  loop(12,
+    s_r = suggest_chord_count; 
+    s_t = 0; s_m = 0; s_real_m = 0; s_name = ""; s_mood = 0;
+
+    // Logic to determine the 12 suggested chords
+    _cur_btype == 0 ? ( // Major
+        s_r == 0 ? (s_name = "Dreamy / Lydian";  s_r = (_root + 5) % 12; s_t = 6;  s_mood = 0;) :
+        s_r == 1 ? (s_name = "Melancholy";       s_r = (_root + 9) % 12; s_t = 19; s_mood = 1;) :
+        s_r == 2 ? (s_name = "Epic";             s_r = (_root + 8) % 12; s_t = 6;  s_mood = 1;) :
+        s_r == 3 ? (s_name = "Heroic";           s_r = (_root + 3) % 12; s_t = 6;  s_mood = 1;) :
+        s_r == 4 ? (s_name = "Bright Lift";      s_r = (_root + 2) % 12; s_t = 8;  s_mood = 0;) :
+        s_r == 5 ? (s_name = "Suspense";         s_r = (_root + 4) % 12; s_t = 3;  s_mood = 2;) : // III aug
+        s_r == 6 ? (s_name = "Phrygian Menace";  s_r = (_root + 4) % 12; s_t = 8;  s_mood = 3;) : // III 7
+        s_r == 7 ? (s_name = "Dark Passage";     s_r = (_root + 5) % 12; s_t = 11; s_mood = 3;) : // IV mM7
+        s_r == 8 ? (s_name = "Unsettling";       s_r = (_root + 1) % 12; s_t = 6;  s_mood = 3;) : // bII Maj7
+        s_r == 9 ? (s_name = "Sinister";         s_r = (_root + 9) % 12; s_t = 10; s_mood = 3;) : // vi dim7
+        s_r == 10? (s_name = "Dissonant Lift";   s_r = _root;            s_t = 3;  s_mood = 3;) : // I aug
+        s_r == 11? (s_name = "The Abyss";        s_r = (_root + 6) % 12; s_t = 9;  s_mood = 3;) ; // #IV m7b5
+    ) : _cur_btype == 1 ? ( // Minor
+        s_r == 0 ? (s_name = "Dramatic";         s_r = (_root + 8) % 12; s_t = 6;  s_mood = 0;) :
+        s_r == 1 ? (s_name = "Deep Emotion";     s_r = (_root + 5) % 12; s_t = 19; s_mood = 1;) :
+        s_r == 2 ? (s_name = "Harmonic Tension"; s_r = (_root + 7) % 12; s_t = 8;  s_mood = 2;) :
+        s_r == 3 ? (s_name = "Mysterious";       s_r = (_root + 1) % 12; s_t = 6;  s_mood = 1;) : // bII Maj7
+        s_r == 4 ? (s_name = "Hopeful";          s_r = (_root + 3) % 12; s_t = 6;  s_mood = 0;) :
+        s_r == 5 ? (s_name = "Smooth";           s_r = (_root + 7) % 12; s_t = 7;  s_mood = 0;) :
+        s_r == 6 ? (s_name = "Despair";          s_r = _root;            s_t = 11; s_mood = 3;) : // i mM7
+        s_r == 7 ? (s_name = "Gothic";           s_r = (_root + 11) % 12;s_t = 10; s_mood = 3;) : // vii dim7
+        s_r == 8 ? (s_name = "Torment";          s_r = (_root + 7) % 12; s_t = 3;  s_mood = 3;) : // V aug
+        s_r == 9 ? (s_name = "Creeping Dread";   s_r = (_root + 9) % 12; s_t = 9;  s_mood = 3;) : // vi m7b5
+        s_r == 10? (s_name = "Ominous";          s_r = (_root + 6) % 12; s_t = 10; s_mood = 3;) : // bV dim7
+        s_r == 11? (s_name = "The End";          s_r = (_root + 5) % 12; s_t = 8;  s_mood = 2;) ; // IV 7
+    ) : ( // Fallback
+        s_name = "N/A"; s_r = -1; s_t = -1;
+    );
+    
+    // Create s_m correctly
+    s_t == 0 ? s_m = (1<<0)|(1<<4)|(1<<7) : // Maj
+    s_t == 1 ? s_m = (1<<0)|(1<<3)|(1<<7) : // m
+    s_t == 2 ? s_m = (1<<0)|(1<<3)|(1<<6) : // dim
+    s_t == 3 ? s_m = (1<<0)|(1<<4)|(1<<8) : // aug
+    s_t == 4 ? s_m = (1<<0)|(1<<2)|(1<<7) : // sus2 
+    s_t == 5 ? s_m = (1<<0)|(1<<5)|(1<<7) : // sus4
+    s_t == 6 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<11) : // Maj7
+    s_t == 7 ? s_m = (1<<0)|(1<<3)|(1<<7)|(1<<10) : // m7
+    s_t == 8 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<10) : // 7
+    s_t == 9 ? s_m = (1<<0)|(1<<3)|(1<<6)|(1<<10) : // m7b5
+    s_t == 10 ? s_m = (1<<0)|(1<<3)|(1<<6)|(1<<9) : // dim7
+    s_t == 11 ? s_m = (1<<0)|(1<<3)|(1<<7)|(1<<11) : // mM7
+    s_t == 12 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<9) : // 6
+    s_t == 13 ? s_m = (1<<0)|(1<<3)|(1<<7)|(1<<9) : // m6
+    s_t == 14 ? s_m = (1<<0)|(1<<5)|(1<<7)|(1<<10) : // 7sus4
+    s_t == 15 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<14) : // add9  
+    s_t == 16 ? s_m = (1<<0)|(1<<3)|(1<<7)|(1<<14) : // madd9
+    s_t == 17 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<10)|(1<<14) : // 9
+    s_t == 18 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<11)|(1<<14) : // Maj9
+    s_t == 19 ? s_m = (1<<0)|(1<<3)|(1<<7)|(1<<10)|(1<<14) : // m9
+    s_t == 20 ? s_m = (1<<0)|(1<<4)|(1<<7)|(1<<17) : // add11 
+    s_t == 21 ? s_m = (1<<0)|(1<<3)|(1<<7)|(1<<17) : // madd11
+    s_m = 0;
+        
+    s_real_m = 0; s_k = 0;
+    loop(24,
+        (s_m & (1<<s_k)) ? s_real_m |= (1 << ((s_k + s_r) % 12));
+        s_k += 1;
+    );
+
+    chord_in_scl = 1; s_k2 = 0;
+    loop(12,
+        (s_real_m & (1<<s_k2)) && !is_in_scale(s_k2, key_root, selected_mode_idx) ? chord_in_scl = 0;
+        s_k2 += 1;
+    );
+
+    // Coordinate prep (Two columns, 6 rows)
+    col_x = suggest_chord_count < 6 ? 20 : 205;
+    col_y = 95 + ((suggest_chord_count % 6) * 48);
+
+    // Draw the suggestion background box
+    s_mood == 0 ? (gfx_r=0.1; gfx_g=0.3; gfx_b=0.2;) : // Greenish Safe
+    s_mood == 1 ? (gfx_r=0.2; gfx_g=0.2; gfx_b=0.4;) : // Violet/Blue
+    s_mood == 2 ? (gfx_r=0.4; gfx_g=0.2; gfx_b=0.1;) : // Orange Tension
+    s_mood == 3 ? (gfx_r=0.4; gfx_g=0.1; gfx_b=0.1;) : // Red Evil
+    (gfx_r=0.2; gfx_g=0.2; gfx_b=0.2;);
+    gfx_a=1;
+    gfx_rect(col_x, col_y, 175, 42); 
+
+    // Line 1: Mood
+    gfx_setfont(1, "Arial", 12);
+    gfx_x = col_x + 5; gfx_y = col_y + 3;
+    gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=0.7;
+    gfx_drawstr(s_name);
+
+    // Line 2: Chord name
+    gfx_setfont(1, "Arial", 16);
+    gfx_x = col_x + 5; gfx_y = col_y + 20;
+    gfx_a=1;
+    
+    chord_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=1; gfx_g=1; gfx_b=1;);
+    s_r >= 0 ? (
+      s_r==0?gfx_drawstr("C"):s_r==1?gfx_drawstr("Db"):s_r==2?gfx_drawstr("D"):
+      s_r==3?gfx_drawstr("Eb"):s_r==4?gfx_drawstr("E"):s_r==5?gfx_drawstr("F"):
+      s_r==6?gfx_drawstr("F#"):s_r==7?gfx_drawstr("G"):s_r==8?gfx_drawstr("Ab"):
+      s_r==9?gfx_drawstr("A"):s_r==10?gfx_drawstr("Bb"):gfx_drawstr("B");
+      gfx_drawstr(" ");
+
+      s_t == 0 ? gfx_drawstr("Maj") : s_t == 1 ? gfx_drawstr("m") : s_t == 2 ? gfx_drawstr("dim") : s_t == 3 ? gfx_drawstr("aug") :
+      s_t == 4 ? gfx_drawstr("sus2") : s_t == 5 ? gfx_drawstr("sus4") : s_t == 6 ? gfx_drawstr("Maj7") : s_t == 7 ? gfx_drawstr("m7") :
+      s_t == 8 ? gfx_drawstr("7") : s_t == 9 ? gfx_drawstr("m7b5") : s_t == 10 ? gfx_drawstr("dim7") : s_t == 11 ? gfx_drawstr("mM7") :
+      s_t == 12 ? gfx_drawstr("6") : s_t == 13 ? gfx_drawstr("m6") : s_t == 14 ? gfx_drawstr("7sus4") : s_t == 15 ? gfx_drawstr("add9") :
+      s_t == 16 ? gfx_drawstr("madd9") : s_t == 17 ? gfx_drawstr("9") : s_t == 18 ? gfx_drawstr("Maj9") : s_t == 19 ? gfx_drawstr("m9") :
+      s_t == 20 ? gfx_drawstr("add11") : s_t == 21 ? gfx_drawstr("madd11") : 0;
+    ) : (
+      gfx_drawstr("N/A");
+    );
+
+
+    // Buttons
+    gfx_setfont(1, "Arial", 16);
+    gfx_x = col_x + 90; gfx_y = col_y + 20;
+    gfx_measurestr("[P]", bw, bh);
+    hov_p = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+    hov_p ? (gfx_r=0.2; gfx_g=1; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+    gfx_drawstr("[P]");
+
+    gfx_x = col_x + 120; gfx_y = col_y + 20;
+    gfx_measurestr("[^]", bw, bh);
+    hov_c = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+    hov_c ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+    gfx_drawstr("[^]");
+
+    gfx_x = col_x + 150; gfx_y = col_y + 20;
+    gfx_measurestr("[+]", bw, bh);
+    hov_s = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+    hov_s ? (gfx_r=0.2; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+    gfx_drawstr("[+]");
+
+    // Store data for click handling
+    cbox[suggest_chord_count * 8 + 0] = col_x;
+    cbox[suggest_chord_count * 8 + 1] = col_y;
+    cbox[suggest_chord_count * 8 + 2] = 175; // updated width
+    cbox[suggest_chord_count * 8 + 3] = 42;  // updated height
+    cbox[suggest_chord_count * 8 + 4] = s_r;
+    cbox[suggest_chord_count * 8 + 5] = s_t;
+    cbox[suggest_chord_count * 8 + 6] = s_m;
+    cbox[suggest_chord_count * 8 + 7] = s_real_m;
+
+    suggest_chord_count += 1;
+  );
+
+  // Play and Add logic for Suggest Next
+  idx = 0;
+  loop(suggest_chord_count,
+    bx = cbox[idx * 8 + 0] + 90;  // Play btn x
+    cx = cbox[idx * 8 + 0] + 120; // Set btn x
+    ax = cbox[idx * 8 + 0] + 150; // Add btn x
+    by = cbox[idx * 8 + 1] + 20;  // Y MATCH DRAW OFFSET
+    sv_r = cbox[idx * 8 + 4];
+    sv_t = cbox[idx * 8 + 5];
+    sv_m = cbox[idx * 8 + 6];
+    sv_real_m = cbox[idx * 8 + 7];
+
+    // Play click check - Exclusively audition
+    mouse_cap & 1 && mouse_x >= bx && mouse_x <= bx + bw && mouse_y >= by && mouse_y <= by + bh ? (
+      sug_play_frame = 3; // Keep override alive
+
+      n1 = -1; n2 = -1; n3 = -1; n4 = -1; n5 = -1;
+      c_k = 0; n_id = 0;
+      loop(24, 
+        (sv_real_m & (1<<c_k)) ? (
+           base_n = 60 + play_octave_offset * 12 + c_k; 
+           n_id == 0 ? n1 = base_n :
+           n_id == 1 ? n2 = base_n :
+           n_id == 2 ? n3 = base_n :
+           n_id == 3 ? n4 = base_n :
+           n_id == 4 ? n5 = base_n : 0;
+           n_id += 1;
+        );
+        c_k += 1;
+      );
+      new_req_n1 = n1; new_req_n2 = n2; new_req_n3 = n3; new_req_n4 = n4; new_req_n5 = n5;
+      new_req_vel = 100;
+      
+      // Blocks auto-current update so preview stays harmless
+      ui_chord_override_timer = 5;
+    );
+
+    // Set Current click
+    mouse_click && mouse_x >= cx && mouse_x <= cx + bw && mouse_y >= by && mouse_y <= by + bh ? (
+      global_last_s_r = sv_r;
+      global_last_s_t = sv_t;
+      global_last_s_real_m = sv_real_m;
+      // Force immediate visual update
+      last_played_s_r = sv_r;
+      last_played_s_t = sv_t;
+      last_played_s_real_m = sv_real_m;
+      ui_chord_override_timer = 5;
+      mouse_click = 0;
+    );
+
+    // Add click check
+    mouse_click && mouse_x >= ax && mouse_x <= ax + bw && mouse_y >= by && mouse_y <= by + bh ? (
+      is_dup = 0; pal_i = 0;
+      loop(pal_cnt,
+        pal_r[pal_i] == sv_r && pal_t[pal_i] == sv_t ? is_dup = 1;
+        pal_i += 1;
+      );
+      !is_dup && pal_cnt < 64 ? (
+        pal_r[pal_cnt] = sv_r;
+        pal_t[pal_cnt] = sv_t;
+        pal_m[pal_cnt] = sv_real_m;
+        pal_cnt += 1;
+        pal_cnt_mem[0] = pal_cnt; // trigger save
+      );
+      mouse_click = 0; // Consume the click
+    );
+    idx += 1;
+  );
+);
 show_chord_browser ? (
   gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.95;
   gfx_rect(0, 0, gfx_w, gfx_h - kb_h);
@@ -1475,6 +1888,27 @@ show_chord_browser ? (
   is_hov_gp ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
   gfx_x = gp_btn; gfx_y = cy_btn;
   gfx_drawstr("[ Go to Palette ]");
+
+  // To Suggest Next Button
+  gfx_measurestr("[ Go to Suggest ]", sn_w, sn_h);
+  sn_btn_x = gp_btn - sn_w - 20;
+  is_hov_sn = mouse_x >= sn_btn_x && mouse_x <= sn_btn_x+sn_w && mouse_y >= cy_btn && mouse_y <= cy_btn+sn_h;
+  mouse_click && is_hov_sn ? ( 
+    show_chord_browser = 0; 
+    show_suggestions = 1; 
+    last_suggest_root = global_last_s_r != -1 ? global_last_s_r : key_root;
+    last_suggest_btype = global_last_btype;
+    
+    last_played_s_r = global_last_s_r;
+    last_played_s_t = global_last_s_t;
+    last_played_s_real_m = global_last_s_real_m;
+      
+    mouse_click = 0; 
+  );
+
+  is_hov_sn ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
+  gfx_x = sn_btn_x; gfx_y = cy_btn;
+  gfx_drawstr("[ Go to Suggest ]");
 
   // Filter Buttons
   gfx_setfont(1, "Arial", 16);
@@ -1624,6 +2058,10 @@ show_chord_browser ? (
         hov_p ? (gfx_r=0.2; gfx_g=1; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
         gfx_drawstr("[P]");
         (mouse_cap & 1) && hov_p ? (
+            global_last_s_r = c_r;
+            global_last_s_t = c_t;
+            global_last_s_real_m = real_m;
+            ui_chord_override_timer = 5;
             // Play chord
             n1 = -1; n2 = -1; n3 = -1; n4 = -1; n5 = -1;
             c_k = 0; n_idx = 0;
@@ -1680,6 +2118,10 @@ show_chord_browser ? (
       // Name Box -> Send to piano
       mouse_x >= bx && mouse_x <= bx+bw_n && mouse_y >= by && mouse_y <= by+bh_n ? (
         usr_sel_notes_mask = cbox[i*8+7];
+        global_last_s_r = cbox[i*8+4];
+        global_last_s_t = cbox[i*8+5];
+        global_last_s_real_m = cbox[i*8+7];
+        ui_chord_override_timer = 5;
         auto_play_enabled ? auto_play_timer = 15 : 0;
         mouse_click = 0;
         hit = 1;
@@ -1728,7 +2170,6 @@ show_chord_browser ? (
     i += 1;
   );
 );
-
 // === OVERLAY: CHORD PALETTE ===
 show_palette ? (
   gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.95;
@@ -1760,6 +2201,27 @@ show_palette ? (
   is_hov_sw ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
   gfx_x = sw_btn_x; gfx_y = sw_btn_y;
   gfx_drawstr("[ Go to Find Chords ]");
+
+  // To Suggest Next Button
+  gfx_measurestr("[ Go to Suggest ]", sn_w, sn_h);
+  sn_btn_x = sw_btn_x - sn_w - 20; sn_btn_y = 20;
+  is_hov_sn = mouse_x >= sn_btn_x && mouse_x <= sn_btn_x+sn_w && mouse_y >= sn_btn_y && mouse_y <= sn_btn_y+sn_h;
+  mouse_click && is_hov_sn ? ( 
+    show_palette = 0; 
+    show_suggestions = 1; 
+    last_suggest_root = global_last_s_r != -1 ? global_last_s_r : key_root;
+    last_suggest_btype = global_last_btype;
+
+    last_played_s_r = global_last_s_r;
+    last_played_s_t = global_last_s_t;
+    last_played_s_real_m = global_last_s_real_m;
+
+    mouse_click = 0; 
+  );
+
+  is_hov_sn ? (gfx_r=0.4; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.2; gfx_g=0.6; gfx_b=0.8;);
+  gfx_x = sn_btn_x; gfx_y = sn_btn_y;
+  gfx_drawstr("[ Go to Suggest ]");
 
   // === Palette Filter Bar ===
   gfx_setfont(1, "Arial", 16);
@@ -1876,6 +2338,10 @@ show_palette ? (
 
       mouse_click ? (
         usr_sel_notes_mask = p_real_m;
+        global_last_s_r = p_r;
+        global_last_s_t = p_t;
+        global_last_s_real_m = p_real_m;
+        ui_chord_override_timer = 5;
         auto_play_enabled ? auto_play_timer = 15 : 0;
         mouse_click = 0;
       );
@@ -1894,6 +2360,10 @@ show_palette ? (
     gfx_drawstr("[P]");
 
     (mouse_cap & 1) && hov_p ? (
+      global_last_s_r = p_r;
+      global_last_s_t = p_t;
+      global_last_s_real_m = p_real_m;
+      ui_chord_override_timer = 5;
       n1 = -1; n2 = -1; n3 = -1; n4 = -1; n5 = -1;
       c_k = 0; n_idx = 0;
       loop(12,
