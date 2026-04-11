@@ -1,18 +1,61 @@
-@gfx 400 400
+@gfx 400 460
 
 ui_chord_override_timer > 0 ? ui_chord_override_timer -= 1;
 
 current_root != -1 ? (
-    current_root != global_last_root || current_btype != global_last_btype ? (
+    current_root != global_last_root || current_btype != global_last_btype || current_type != global_last_type ? (
         global_last_root = current_root;
         global_last_btype = current_btype;
+        global_last_type = current_type;
         
-        ui_chord_override_timer == 0 ? (
+        ui_chord_override_timer == 0 && global_current_locked == 0 ? (
             global_last_s_r = current_root;
-            global_last_s_t = current_btype == 0 ? 0 : 1;
-            global_last_s_real_m = current_btype == 0 ? 
-                ((1 << current_root) | (1 << ((current_root+4)%12)) | (1 << ((current_root+7)%12))) :
-                ((1 << current_root) | (1 << ((current_root+3)%12)) | (1 << ((current_root+7)%12)));
+            ct = current_type;
+            global_last_s_t = 
+              ct == 0 ? 0 : ct == 1 ? 1 : ct == 2 ? 2 : ct == 3 ? 3 : 
+              ct == 4 ? 4 : ct == 5 ? 5 : ct == 6 ? 0 : ct == 7 ? 6 : 
+              ct == 8 ? 7 : ct == 9 ? 8 : ct == 10 ? 18 : ct == 11 ? 19 : 
+              ct == 12 ? 17 : ct == 13 ? 18 : ct == 14 ? 19 : ct == 15 ? 17 : 
+              ct == 16 ? 12 : ct == 17 ? 13 : ct == 18 ? 15 : ct == 19 ? 16 : 
+              ct == 20 ? 14 : ct == 21 ? 9 : ct == 22 ? 10 : ct == 23 ? 11 : 
+              ct == 24 ? 20 : ct == 25 ? 21 : (current_btype == 0 ? 0 : 1);
+              
+            s_t = global_last_s_t;
+            s_m = 
+              s_t == 0 ? (1<<0)|(1<<4)|(1<<7) : // Maj
+              s_t == 1 ? (1<<0)|(1<<3)|(1<<7) : // m
+              s_t == 2 ? (1<<0)|(1<<3)|(1<<6) : // dim
+              s_t == 3 ? (1<<0)|(1<<4)|(1<<8) : // aug
+              s_t == 4 ? (1<<0)|(1<<2)|(1<<7) : // sus2
+              s_t == 5 ? (1<<0)|(1<<5)|(1<<7) : // sus4
+              s_t == 6 ? (1<<0)|(1<<4)|(1<<7)|(1<<11) : // Maj7
+              s_t == 7 ? (1<<0)|(1<<3)|(1<<7)|(1<<10) : // m7
+              s_t == 8 ? (1<<0)|(1<<4)|(1<<7)|(1<<10) : // 7
+              s_t == 9 ? (1<<0)|(1<<3)|(1<<6)|(1<<10) : // m7b5
+              s_t == 10 ? (1<<0)|(1<<3)|(1<<6)|(1<<9) : // dim7
+              s_t == 11 ? (1<<0)|(1<<3)|(1<<7)|(1<<11) : // mM7
+              s_t == 12 ? (1<<0)|(1<<4)|(1<<7)|(1<<9) : // 6
+              s_t == 13 ? (1<<0)|(1<<3)|(1<<7)|(1<<9) : // m6
+              s_t == 14 ? (1<<0)|(1<<5)|(1<<7)|(1<<10) : // 7sus4
+              s_t == 15 ? (1<<0)|(1<<4)|(1<<7)|(1<<14) : // add9
+              s_t == 16 ? (1<<0)|(1<<3)|(1<<7)|(1<<14) : // madd9
+              s_t == 17 ? (1<<0)|(1<<4)|(1<<7)|(1<<10)|(1<<14) : // 9
+              s_t == 18 ? (1<<0)|(1<<4)|(1<<7)|(1<<11)|(1<<14) : // Maj9
+              s_t == 19 ? (1<<0)|(1<<3)|(1<<7)|(1<<10)|(1<<14) : // m9
+              s_t == 20 ? (1<<0)|(1<<4)|(1<<7)|(1<<17) : // add11
+              s_t == 21 ? (1<<0)|(1<<3)|(1<<7)|(1<<17) : // madd11
+              s_t == 22 ? (1<<0)|(1<<3)|(1<<6)|(1<<9) : // dim7 alias
+              s_t == 23 ? (1<<0)|(1<<3)|(1<<7)|(1<<11) : // mM7 alias
+              s_t == 24 ? (1<<0)|(1<<4)|(1<<7)|(1<<10)|(1<<14) : // 9 alias
+              s_t == 25 ? (1<<0)|(1<<3)|(1<<6)|(1<<10)|(1<<14) : // m9 alias
+              (1<<0); // default fallback
+              
+            s_real_m = 0; s_k = 0;
+            loop(24,
+                (s_m & (1<<s_k)) ? s_real_m |= (1 << ((s_k + global_last_s_r) % 12));
+                s_k += 1;
+            );
+            global_last_s_real_m = s_real_m;
         );
     );
 );
@@ -169,3 +212,13 @@ mouse_rclick ? (
   );
 );
 
+// A. Gen Logic
+global_last_s_r != prev_tracker_s_r || global_last_s_t != prev_tracker_s_t ? (
+    global_auto_gen && global_last_s_r != -1 ? (
+        last_suggest_root = global_last_s_r;
+        t__ = global_last_s_t;
+        last_suggest_btype = (t__==1 || t__==2 || t__==7 || t__==9 || t__==10 || t__==11 || t__==13 || t__==16 || t__==19 || t__==21) ? 1 : 0;
+    );
+    prev_tracker_s_r = global_last_s_r;
+    prev_tracker_s_t = global_last_s_t;
+);

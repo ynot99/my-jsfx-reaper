@@ -1,12 +1,57 @@
 // === SUGGESTION OVERLAY: NEXT CHORD SUGGESTION ===
 show_suggestions ? (
-  gfx_r=0.1; gfx_g=0.1; gfx_b=0.12; gfx_a=0.95;
+  gfx_r=0.1; gfx_g=0.1; gfx_b=0.12; gfx_a=0.85;
   gfx_rect(0, 0, gfx_w, gfx_h - kb_h);
 
   gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;
-  gfx_setfont(1, "Arial", 22, 'b');
+  gfx_setfont(1, "Arial", 18, 'b');
   gfx_x = 20; gfx_y = 20;
-  gfx_drawstr("Suggested Next Chords:");
+  gfx_drawstr("Next Chords:");
+
+  // Filter UI
+  gfx_setfont(1, "Arial", 14);
+  filter_y = 20;
+  
+  // All
+  gfx_measurestr("[All]", fw, fh);
+  gfx_x = 180; gfx_y = filter_y;
+  hov_f0 = mouse_x >= gfx_x && mouse_x <= gfx_x+fw && mouse_y >= gfx_y && mouse_y <= gfx_y+fh;
+  sug_filter_mode == 0 ? (gfx_r=1; gfx_g=1; gfx_b=1;) : hov_f0 ? (gfx_r=0.8; gfx_g=0.8; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[All]");
+  mouse_click && hov_f0 ? (sug_filter_mode = 0; mouse_click = 0;);
+  
+  // Safe
+  gfx_measurestr("[Safe]", fw, fh);
+  gfx_x = 220; gfx_y = filter_y;
+  hov_f1 = mouse_x >= gfx_x && mouse_x <= gfx_x+fw && mouse_y >= gfx_y && mouse_y <= gfx_y+fh;
+  sug_filter_mode == 1 ? (gfx_r=0.2; gfx_g=1; gfx_b=0.2;) : hov_f1 ? (gfx_r=0.5; gfx_g=0.8; gfx_b=0.5;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[Safe]");
+  mouse_click && hov_f1 ? (sug_filter_mode = 1; mouse_click = 0;);
+
+  // Epic
+  gfx_measurestr("[Epic]", fw, fh);
+  gfx_x = 265; gfx_y = filter_y;
+  hov_f2 = mouse_x >= gfx_x && mouse_x <= gfx_x+fw && mouse_y >= gfx_y && mouse_y <= gfx_y+fh;
+  sug_filter_mode == 2 ? (gfx_r=0.4; gfx_g=0.6; gfx_b=1;) : hov_f2 ? (gfx_r=0.5; gfx_g=0.5; gfx_b=0.8;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[Epic]");
+  mouse_click && hov_f2 ? (sug_filter_mode = 2; mouse_click = 0;);
+
+  // Tens
+  gfx_measurestr("[Tens]", fw, fh);
+  gfx_x = 310; gfx_y = filter_y;
+  hov_f3 = mouse_x >= gfx_x && mouse_x <= gfx_x+fw && mouse_y >= gfx_y && mouse_y <= gfx_y+fh;
+  sug_filter_mode == 3 ? (gfx_r=1; gfx_g=0.6; gfx_b=0.1;) : hov_f3 ? (gfx_r=0.8; gfx_g=0.5; gfx_b=0.5;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[Tens]");
+  mouse_click && hov_f3 ? (sug_filter_mode = 3; mouse_click = 0;);
+
+  // Dark
+  gfx_measurestr("[Dark]", fw, fh);
+  gfx_x = 355; gfx_y = filter_y;
+  hov_f4 = mouse_x >= gfx_x && mouse_x <= gfx_x+fw && mouse_y >= gfx_y && mouse_y <= gfx_y+fh;
+  sug_filter_mode == 4 ? (gfx_r=1; gfx_g=0.2; gfx_b=0.2;) : hov_f4 ? (gfx_r=0.8; gfx_g=0.5; gfx_b=0.5;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[Dark]");
+  mouse_click && hov_f4 ? (sug_filter_mode = 4; mouse_click = 0;);
+
 
   // Close Button
   gfx_setfont(1, "Arial", 16);
@@ -47,7 +92,23 @@ show_suggestions ? (
   gfx_rect(cur_x, cur_y, 360, 26);
   gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;
   gfx_x = cur_x + 5; gfx_y = cur_y + 4;
+  gfx_measurestr("Current: ", c_w, c_h);
   gfx_drawstr("Current: ");
+  
+  // Name hover and click
+  hov_cur_name = mouse_x >= gfx_x && mouse_x <= gfx_x + 75 && mouse_y >= gfx_y - 2 && mouse_y <= gfx_y + 20;
+  hov_cur_name ? (
+    gfx_x_saved = gfx_x; gfx_y_saved = gfx_y;
+    gfx_a = 0.2;
+    gfx_rect(gfx_x - 2, gfx_y - 2, 78, 22);
+    gfx_a = 1; gfx_r = 1; gfx_g = 1; gfx_b = 1;
+    gfx_x = gfx_x_saved; gfx_y = gfx_y_saved;
+    mouse_click && !hov_lck && !hov_agen && !hov_pc && !hov_sc && !hov_gc ? (
+        usr_sel_notes_mask = last_played_s_real_m;
+        mouse_click = 0;
+    );
+  );
+
   // Відображаємо "Current" назву
   last_played_s_r==0?gfx_drawstr("C"):last_played_s_r==1?gfx_drawstr("Db"):last_played_s_r==2?gfx_drawstr("D"):
   last_played_s_r==3?gfx_drawstr("Eb"):last_played_s_r==4?gfx_drawstr("E"):last_played_s_r==5?gfx_drawstr("F"):
@@ -62,7 +123,21 @@ show_suggestions ? (
   last_played_s_t == 20 ? gfx_drawstr("add11") : last_played_s_t == 21 ? gfx_drawstr("madd11") : 0;
 
   // Buttons for Current
-  gfx_x = cur_x + 235; gfx_y = cur_y + 5;
+  gfx_x = cur_x + 140; gfx_y = cur_y + 5;
+  gfx_measurestr("[Lck]", bw, bh);
+  hov_lck = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+  global_current_locked ? (gfx_r=1; gfx_g=0.4; gfx_b=0.2;) : hov_lck ? (gfx_r=0.8; gfx_g=0.7; gfx_b=0.5;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[Lck]");
+  mouse_click && hov_lck ? ( global_current_locked = !global_current_locked; mouse_click = 0; );
+
+  gfx_x = cur_x + 185; gfx_y = cur_y + 5;
+  gfx_measurestr("[A.Gen]", bw, bh);
+  hov_agen = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
+  global_auto_gen ? (gfx_r=0.2; gfx_g=0.9; gfx_b=0.5;) : hov_agen ? (gfx_r=0.4; gfx_g=1.0; gfx_b=0.7;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
+  gfx_drawstr("[A.Gen]");
+  mouse_click && hov_agen ? ( global_auto_gen = !global_auto_gen; mouse_click = 0; );
+
+  gfx_x = cur_x + 245; gfx_y = cur_y + 5;
   gfx_measurestr("[P]", bw, bh);
   hov_pc = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
   hov_pc ? (gfx_r=0.2; gfx_g=1; gfx_b=0.2;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
@@ -84,7 +159,7 @@ show_suggestions ? (
       ui_chord_override_timer = 5;
   );
 
-  gfx_x = cur_x + 270; gfx_y = cur_y + 5;
+  gfx_x = cur_x + 275; gfx_y = cur_y + 5;
   gfx_measurestr("[+]", bw, bh);
   hov_sc = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
   hov_sc ? (gfx_r=0.2; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
@@ -106,7 +181,7 @@ show_suggestions ? (
       mouse_click = 0;
   );
 
-  gfx_x = cur_x + 305; gfx_y = cur_y + 5;
+  gfx_x = cur_x + 310; gfx_y = cur_y + 5;
   gfx_measurestr("[ Gen ]", bw, bh);
   hov_gc = mouse_x >= gfx_x && mouse_x <= gfx_x+bw && mouse_y >= gfx_y && mouse_y <= gfx_y+bh;
   hov_gc ? (gfx_r=0.2; gfx_g=0.8; gfx_b=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5;);
@@ -143,41 +218,172 @@ show_suggestions ? (
   _cur_btype = last_suggest_btype;
   _root = last_suggest_root;
 
-  loop(12,
+  loop(14,
     s_r = suggest_chord_count; 
     s_t = 0; s_m = 0; s_real_m = 0; s_name = ""; s_mood = 0;
 
-    // Logic to determine the 12 suggested chords
-    _cur_btype == 0 ? ( // Major
-        s_r == 0 ? (s_name = "Dreamy / Lydian";  s_r = (_root + 5) % 12; s_t = 6;  s_mood = 0;) :
-        s_r == 1 ? (s_name = "Melancholy";       s_r = (_root + 9) % 12; s_t = 19; s_mood = 1;) :
-        s_r == 2 ? (s_name = "Epic";             s_r = (_root + 8) % 12; s_t = 6;  s_mood = 1;) :
-        s_r == 3 ? (s_name = "Heroic";           s_r = (_root + 3) % 12; s_t = 6;  s_mood = 1;) :
-        s_r == 4 ? (s_name = "Bright Lift";      s_r = (_root + 2) % 12; s_t = 8;  s_mood = 0;) :
-        s_r == 5 ? (s_name = "Suspense";         s_r = (_root + 4) % 12; s_t = 3;  s_mood = 2;) : // III aug
-        s_r == 6 ? (s_name = "Phrygian Menace";  s_r = (_root + 4) % 12; s_t = 8;  s_mood = 3;) : // III 7
-        s_r == 7 ? (s_name = "Dark Passage";     s_r = (_root + 5) % 12; s_t = 11; s_mood = 3;) : // IV mM7
-        s_r == 8 ? (s_name = "Unsettling";       s_r = (_root + 1) % 12; s_t = 6;  s_mood = 3;) : // bII Maj7
-        s_r == 9 ? (s_name = "Sinister";         s_r = (_root + 9) % 12; s_t = 10; s_mood = 3;) : // vi dim7
-        s_r == 10? (s_name = "Dissonant Lift";   s_r = _root;            s_t = 3;  s_mood = 3;) : // I aug
-        s_r == 11? (s_name = "The Abyss";        s_r = (_root + 6) % 12; s_t = 9;  s_mood = 3;) ; // #IV m7b5
-    ) : _cur_btype == 1 ? ( // Minor
-        s_r == 0 ? (s_name = "Dramatic";         s_r = (_root + 8) % 12; s_t = 6;  s_mood = 0;) :
-        s_r == 1 ? (s_name = "Deep Emotion";     s_r = (_root + 5) % 12; s_t = 19; s_mood = 1;) :
-        s_r == 2 ? (s_name = "Harmonic Tension"; s_r = (_root + 7) % 12; s_t = 8;  s_mood = 2;) :
-        s_r == 3 ? (s_name = "Mysterious";       s_r = (_root + 1) % 12; s_t = 6;  s_mood = 1;) : // bII Maj7
-        s_r == 4 ? (s_name = "Hopeful";          s_r = (_root + 3) % 12; s_t = 6;  s_mood = 0;) :
-        s_r == 5 ? (s_name = "Smooth";           s_r = (_root + 7) % 12; s_t = 7;  s_mood = 0;) :
-        s_r == 6 ? (s_name = "Despair";          s_r = _root;            s_t = 11; s_mood = 3;) : // i mM7
-        s_r == 7 ? (s_name = "Gothic";           s_r = (_root + 11) % 12;s_t = 10; s_mood = 3;) : // vii dim7
-        s_r == 8 ? (s_name = "Torment";          s_r = (_root + 7) % 12; s_t = 3;  s_mood = 3;) : // V aug
-        s_r == 9 ? (s_name = "Creeping Dread";   s_r = (_root + 9) % 12; s_t = 9;  s_mood = 3;) : // vi m7b5
-        s_r == 10? (s_name = "Ominous";          s_r = (_root + 6) % 12; s_t = 10; s_mood = 3;) : // bV dim7
-        s_r == 11? (s_name = "The End";          s_r = (_root + 5) % 12; s_t = 8;  s_mood = 2;) ; // IV 7
-    ) : ( // Fallback
-        s_name = "N/A"; s_r = -1; s_t = -1;
+    // Logic by filter
+    sug_filter_mode == 0 ? ( // 0 = ALL (Balanced)
+      _cur_btype == 0 ? ( // Major
+        s_r==0 ?(s_name="Dreamy/Lydian";s_r=(_root+5)%12;s_t=6; s_mood=0;):
+        s_r==1 ?(s_name="Melancholy";s_r=(_root+9)%12;   s_t=19;s_mood=1;):
+        s_r==2 ?(s_name="Epic";s_r=(_root+8)%12;         s_t=6; s_mood=1;):
+        s_r==3 ?(s_name="Heroic";s_r=(_root+3)%12;       s_t=6; s_mood=1;):
+        s_r==4 ?(s_name="Bright Lift";s_r=(_root+2)%12;  s_t=8; s_mood=0;):
+        s_r==5 ?(s_name="Suspense";s_r=(_root+4)%12;     s_t=3; s_mood=2;):
+        s_r==6 ?(s_name="Phrygian Menace";s_r=(_root+4)%12;s_t=8; s_mood=3;):
+        s_r==7 ?(s_name="Dark Passage";s_r=(_root+5)%12; s_t=11;s_mood=3;):
+        s_r==8 ?(s_name="Unsettling";s_r=(_root+1)%12;   s_t=6; s_mood=3;):
+        s_r==9 ?(s_name="Sinister";s_r=(_root+9)%12;     s_t=10;s_mood=3;):
+        s_r==10?(s_name="Dissonant Lift";s_r=_root;      s_t=3; s_mood=3;):
+        s_r==11?(s_name="The Abyss";s_r=(_root+6)%12;    s_t=9; s_mood=3;):
+        s_r==12?(s_name="Sec Dom V7/vi";s_r=(_root+4)%12;s_t=8; s_mood=2;):
+        s_r==13?(s_name="Sec Dom V7/V";s_r=(_root+2)%12; s_t=8; s_mood=2;)
+      ) : ( // Minor
+        s_r==0 ?(s_name="Dramatic";s_r=(_root+8)%12;     s_t=6; s_mood=0;):
+        s_r==1 ?(s_name="Deep Emotion";s_r=(_root+5)%12; s_t=19;s_mood=1;):
+        s_r==2 ?(s_name="Harmonic Tension";s_r=(_root+7)%12;s_t=8; s_mood=2;):
+        s_r==3 ?(s_name="Mysterious";s_r=(_root+1)%12;   s_t=6; s_mood=1;):
+        s_r==4 ?(s_name="Hopeful";s_r=(_root+3)%12;      s_t=6; s_mood=0;):
+        s_r==5 ?(s_name="Smooth";s_r=(_root+7)%12;       s_t=7; s_mood=0;):
+        s_r==6 ?(s_name="Despair";s_r=_root;             s_t=11;s_mood=3;):
+        s_r==7 ?(s_name="Gothic";s_r=(_root+11)%12;      s_t=10;s_mood=3;):
+        s_r==8 ?(s_name="Torment";s_r=(_root+7)%12;      s_t=3; s_mood=3;):
+        s_r==9 ?(s_name="Creeping Dread";s_r=(_root+9)%12;s_t=9; s_mood=3;):
+        s_r==10?(s_name="Ominous";s_r=(_root+6)%12;      s_t=10;s_mood=3;):
+        s_r==11?(s_name="The End";s_r=(_root+5)%12;      s_t=8; s_mood=2;):
+        s_r==12?(s_name="Sec Dom V7/iv";s_r=_root;       s_t=8; s_mood=2;):
+        s_r==13?(s_name="Sec Dom V7/V";s_r=(_root+2)%12; s_t=8; s_mood=2;)
+      );
+    ) : sug_filter_mode == 1 ? ( // SAFE
+      _cur_btype == 0 ? (
+        s_r==0 ?(s_name="Subdominant";s_r=(_root+5)%12;  s_t=6; s_mood=0;): // IV Maj7
+        s_r==1 ?(s_name="Relative Minor";s_r=(_root+9)%12;s_t=19;s_mood=0;): // vi m9
+        s_r==2 ?(s_name="Supertonic";s_r=(_root+2)%12;   s_t=7; s_mood=0;): // ii m7
+        s_r==3 ?(s_name="Mediant";s_r=(_root+4)%12;      s_t=7; s_mood=0;): // iii m7
+        s_r==4 ?(s_name="Tonic Lift";s_r=_root;          s_t=15;s_mood=0;): // I add9
+        s_r==5 ?(s_name="Dominant Lift";s_r=(_root+7)%12;s_t=15;s_mood=0;): // V add9
+        s_r==6 ?(s_name="Subm. Sus";s_r=(_root+5)%12;    s_t=4; s_mood=0;): // IV sus2
+        s_r==7 ?(s_name="Dom. Sus";s_r=(_root+7)%12;     s_t=5; s_mood=0;): // V sus4
+        s_r==8 ?(s_name="Vi Sus";s_r=(_root+9)%12;       s_t=4; s_mood=0;): // vi sus2 (using sus2 for var)
+        s_r==9 ?(s_name="Subd. 6";s_r=(_root+5)%12;      s_t=12;s_mood=0;): // IV 6
+        s_r==10?(s_name="Dom. 7sus";s_r=(_root+7)%12;    s_t=14;s_mood=0;): // V 7sus4
+        s_r==11?(s_name="Tonic 6";s_r=_root;             s_t=12;s_mood=0;): // I 6
+        s_r==12?(s_name="Vi 6";s_r=(_root+9)%12;         s_t=13;s_mood=0;): // vi m6
+        s_r==13?(s_name="I Maj9";s_r=_root;              s_t=18;s_mood=0;)  // I Maj9
+      ) : (
+        s_r==0 ?(s_name="Rel. Major";s_r=(_root+3)%12;   s_t=6; s_mood=0;): // III Maj7
+        s_r==1 ?(s_name="Subdominant";s_r=(_root+5)%12;  s_t=7; s_mood=0;): // iv m7
+        s_r==2 ?(s_name="Subtonic";s_r=(_root+10)%12;    s_t=6; s_mood=0;): // VII Maj7
+        s_r==3 ?(s_name="Submediant";s_r=(_root+8)%12;   s_t=6; s_mood=0;): // VI Maj7
+        s_r==4 ?(s_name="Tonic Add9";s_r=_root;          s_t=16;s_mood=0;): // i madd9
+        s_r==5 ?(s_name="Dom Minor";s_r=(_root+7)%12;    s_t=7; s_mood=0;): // v m7
+        s_r==6 ?(s_name="Rel. Add9";s_r=(_root+3)%12;    s_t=15;s_mood=0;): // III add9
+        s_r==7 ?(s_name="Subd. Add9";s_r=(_root+5)%12;   s_t=16;s_mood=0;): // iv madd9
+        s_r==8 ?(s_name="Tonic m11";s_r=_root;           s_t=21;s_mood=0;): // i madd11
+        s_r==9 ?(s_name="Subm. Maj9";s_r=(_root+8)%12;   s_t=18;s_mood=0;): // VI Maj9
+        s_r==10?(s_name="Tonic m9";s_r=_root;            s_t=19;s_mood=0;): // i m9
+        s_r==11?(s_name="Subtonic 9";s_r=(_root+10)%12;  s_t=17;s_mood=0;): // VII 9
+        s_r==12?(s_name="Rel 6";s_r=(_root+3)%12;        s_t=12;s_mood=0;): // III 6
+        s_r==13?(s_name="Tonic m6";s_r=_root;            s_t=13;s_mood=0;)  // i m6
+      );
+    ) : sug_filter_mode == 2 ? ( // EPIC
+      _cur_btype == 0 ? (
+        s_r==0 ?(s_name="Borrowed bVI";s_r=(_root+8)%12; s_t=6; s_mood=1;):
+        s_r==1 ?(s_name="Borrowed bIII";s_r=(_root+3)%12;s_t=6; s_mood=1;):
+        s_r==2 ?(s_name="Borrowed bVII";s_r=(_root+10)%12;s_t=6;s_mood=1;):
+        s_r==3 ?(s_name="Borrowed iv";s_r=(_root+5)%12;  s_t=13;s_mood=1;): // iv m6
+        s_r==4 ?(s_name="Borrowed v";s_r=(_root+7)%12;   s_t=7; s_mood=1;): // v m7
+        s_r==5 ?(s_name="Phrygian II";s_r=(_root+1)%12;  s_t=6; s_mood=1;): // bII Maj7
+        s_r==6 ?(s_name="Epic bVI9";s_r=(_root+8)%12;    s_t=18;s_mood=1;): // bVI Maj9
+        s_r==7 ?(s_name="Epic bIII9";s_r=(_root+3)%12;   s_t=18;s_mood=1;):
+        s_r==8 ?(s_name="Subtonic 9";s_r=(_root+10)%12;  s_t=17;s_mood=1;):
+        s_r==9 ?(s_name="Borrowed ii°";s_r=(_root+2)%12; s_t=9; s_mood=1;): // ii m7b5
+        s_r==10?(s_name="Lydian II";s_r=(_root+2)%12;    s_t=6; s_mood=1;): // II Maj7
+        s_r==11?(s_name="Mystery #IV";s_r=(_root+6)%12;  s_t=9; s_mood=1;): // #IV m7b5
+        s_r==12?(s_name="Dark bII";s_r=(_root+1)%12;     s_t=18;s_mood=1;): // bII Maj9
+        s_r==13?(s_name="Heroic bVII";s_r=(_root+10)%12; s_t=12;s_mood=1;)  // bVII 6
+      ) : (
+        s_r==0 ?(s_name="Borrowed IV";s_r=(_root+5)%12;  s_t=6; s_mood=1;): // IV Maj7
+        s_r==1 ?(s_name="Borrowed II";s_r=(_root+2)%12;  s_t=6; s_mood=1;): // II Maj7
+        s_r==2 ?(s_name="Phrygian II";s_r=(_root+1)%12;  s_t=6; s_mood=1;): // bII Maj7
+        s_r==3 ?(s_name="Dorian IV";s_r=(_root+5)%12;    s_t=8; s_mood=1;): // IV 7
+        s_r==4 ?(s_name="Picardy I";s_r=_root;           s_t=6; s_mood=1;): // I Maj7
+        s_r==5 ?(s_name="Epic bVI9";s_r=(_root+8)%12;    s_t=18;s_mood=1;): // bVI Maj9
+        s_r==6 ?(s_name="Epic bVII9";s_r=(_root+10)%12;  s_t=17;s_mood=1;): // bVII 9
+        s_r==7 ?(s_name="Dorian ii";s_r=(_root+2)%12;    s_t=7; s_mood=1;): // ii m7
+        s_r==8 ?(s_name="Locrian bV";s_r=(_root+6)%12;   s_t=6; s_mood=1;): // bV Maj7
+        s_r==9 ?(s_name="Phryg II9";s_r=(_root+1)%12;    s_t=18;s_mood=1;): // bII Maj9
+        s_r==10?(s_name="Picardy add9";s_r=_root;        s_t=15;s_mood=1;): // I add9
+        s_r==11?(s_name="Borrowed vi";s_r=(_root+9)%12;  s_t=7; s_mood=1;): // vi m7
+        s_r==12?(s_name="Mystery vi°";s_r=(_root+9)%12;  s_t=9; s_mood=1;): // vi m7b5
+        s_r==13?(s_name="Soaring III";s_r=(_root+3)%12;  s_t=18;s_mood=1;)  // III Maj9
+      );
+    ) : sug_filter_mode == 3 ? ( // TENSION
+      _cur_btype == 0 ? (
+        s_r==0 ?(s_name="Primary V7";s_r=(_root+7)%12;   s_t=8; s_mood=2;):
+        s_r==1 ?(s_name="Sec Dom V7/vi";s_r=(_root+4)%12;s_t=8; s_mood=2;):
+        s_r==2 ?(s_name="Sec Dom V7/ii";s_r=(_root+9)%12;s_t=8; s_mood=2;):
+        s_r==3 ?(s_name="Sec Dom V7/IV";s_r=_root;       s_t=8; s_mood=2;):
+        s_r==4 ?(s_name="Sec Dom V7/V";s_r=(_root+2)%12; s_t=8; s_mood=2;):
+        s_r==5 ?(s_name="Sec Dom V7/iii";s_r=(_root+11)%12;s_t=8;s_mood=2;):
+        s_r==6 ?(s_name="Mediant aug";s_r=(_root+4)%12;  s_t=3; s_mood=2;):
+        s_r==7 ?(s_name="Tonic aug";s_r=_root;           s_t=3; s_mood=2;):
+        s_r==8 ?(s_name="Subdom aug";s_r=(_root+5)%12;   s_t=3; s_mood=2;):
+        s_r==9 ?(s_name="Dom aug";s_r=(_root+7)%12;      s_t=3; s_mood=2;):
+        s_r==10?(s_name="bVI 7";s_r=(_root+8)%12;        s_t=8; s_mood=2;): // Ger+6
+        s_r==11?(s_name="bVII 7";s_r=(_root+10)%12;      s_t=8; s_mood=2;): // SubV
+        s_r==12?(s_name="bII 7";s_r=(_root+1)%12;        s_t=8; s_mood=2;): // Tritone Sub
+        s_r==13?(s_name="Primary V9";s_r=(_root+7)%12;   s_t=17;s_mood=2;)  // V 9
+      ) : (
+        s_r==0 ?(s_name="Primary V7";s_r=(_root+7)%12;   s_t=8; s_mood=2;):
+        s_r==1 ?(s_name="Sec Dom V7/iv";s_r=_root;       s_t=8; s_mood=2;):
+        s_r==2 ?(s_name="Sec Dom V7/V";s_r=(_root+2)%12; s_t=8; s_mood=2;):
+        s_r==3 ?(s_name="Sec Dom V7/VI";s_r=(_root+3)%12;s_t=8; s_mood=2;):
+        s_r==4 ?(s_name="Sec Dom V7/VII";s_r=(_root+5)%12;s_t=8;s_mood=2;):
+        s_r==5 ?(s_name="Primary V aug";s_r=(_root+7)%12;s_t=3; s_mood=2;):
+        s_r==6 ?(s_name="Tonic aug";s_r=_root;           s_t=3; s_mood=2;):
+        s_r==7 ?(s_name="Subtonic aug";s_r=(_root+10)%12;s_t=3; s_mood=2;):
+        s_r==8 ?(s_name="Mediant aug";s_r=(_root+3)%12;  s_t=3; s_mood=2;):
+        s_r==9 ?(s_name="bII 7";s_r=(_root+1)%12;        s_t=8; s_mood=2;): // Tritone sub
+        s_r==10?(s_name="VI 7";s_r=(_root+8)%12;         s_t=8; s_mood=2;): // V7/bII
+        s_r==11?(s_name="VII 7";s_r=(_root+10)%12;       s_t=8; s_mood=2;): // V7/III
+        s_r==12?(s_name="V 7sus4";s_r=(_root+7)%12;      s_t=14;s_mood=2;): 
+        s_r==13?(s_name="Primary V9";s_r=(_root+7)%12;   s_t=17;s_mood=2;) 
+      );
+    ) : ( // DARK
+      _cur_btype == 0 ? (
+        s_r==0 ?(s_name="Leading dim7";s_r=(_root+11)%12;s_t=10;s_mood=3;):
+        s_r==1 ?(s_name="Tonic dim7";s_r=_root;          s_t=10;s_mood=3;):
+        s_r==2 ?(s_name="Supertonic dim7";s_r=(_root+2)%12;s_t=10;s_mood=3;):
+        s_r==3 ?(s_name="Subdom dim7";s_r=(_root+5)%12;  s_t=10;s_mood=3;):
+        s_r==4 ?(s_name="Tonic mM7";s_r=_root;           s_t=11;s_mood=3;):
+        s_r==5 ?(s_name="Subdom mM7";s_r=(_root+5)%12;   s_t=11;s_mood=3;):
+        s_r==6 ?(s_name="Dominant mM7";s_r=(_root+7)%12; s_t=11;s_mood=3;):
+        s_r==7 ?(s_name="Locrian m7b5";s_r=(_root+11)%12;s_t=9; s_mood=3;):
+        s_r==8 ?(s_name="Dorian m7b5";s_r=(_root+2)%12;  s_t=9; s_mood=3;):
+        s_r==9 ?(s_name="Lydian m7b5";s_r=(_root+6)%12;  s_t=9; s_mood=3;):
+        s_r==10?(s_name="Mediant dim7";s_r=(_root+4)%12; s_t=10;s_mood=3;):
+        s_r==11?(s_name="bVI m7b5";s_r=(_root+8)%12;     s_t=9; s_mood=3;):
+        s_r==12?(s_name="bIII mM7";s_r=(_root+3)%12;     s_t=11;s_mood=3;):
+        s_r==13?(s_name="bVI mM7";s_r=(_root+8)%12;      s_t=11;s_mood=3;)
+      ) : (
+        s_r==0 ?(s_name="Leading dim7";s_r=(_root+11)%12;s_t=10;s_mood=3;):
+        s_r==1 ?(s_name="Subdom dim7";s_r=(_root+5)%12;  s_t=10;s_mood=3;):
+        s_r==2 ?(s_name="Tonic dim7";s_r=_root;          s_t=10;s_mood=3;):
+        s_r==3 ?(s_name="bV dim7";s_r=(_root+6)%12;      s_t=10;s_mood=3;):
+        s_r==4 ?(s_name="Tonic mM7";s_r=_root;           s_t=11;s_mood=3;):
+        s_r==5 ?(s_name="Subdom mM7";s_r=(_root+5)%12;   s_t=11;s_mood=3;):
+        s_r==6 ?(s_name="Dominant mM7";s_r=(_root+7)%12; s_t=11;s_mood=3;):
+        s_r==7 ?(s_name="Supertonic m7b5";s_r=(_root+2)%12;s_t=9;s_mood=3;):
+        s_r==8 ?(s_name="Dorian m7b5";s_r=(_root+9)%12;  s_t=9; s_mood=3;):
+        s_r==9 ?(s_name="bIII dim7";s_r=(_root+3)%12;    s_t=10;s_mood=3;):
+        s_r==10?(s_name="bVI dim7";s_r=(_root+8)%12;     s_t=10;s_mood=3;):
+        s_r==11?(s_name="Subtonic m7b5";s_r=(_root+10)%12;s_t=9;s_mood=3;):
+        s_r==12?(s_name="bII mM7";s_r=(_root+1)%12;      s_t=11;s_mood=3;):
+        s_r==13?(s_name="bVI mM7";s_r=(_root+8)%12;      s_t=11;s_mood=3;)
+      );
     );
-    
     // Create s_m correctly
     s_t == 0 ? s_m = (1<<0)|(1<<4)|(1<<7) : // Maj
     s_t == 1 ? s_m = (1<<0)|(1<<3)|(1<<7) : // m
@@ -215,9 +421,9 @@ show_suggestions ? (
         s_k2 += 1;
     );
 
-    // Coordinate prep (Two columns, 6 rows)
-    col_x = suggest_chord_count < 6 ? 20 : 205;
-    col_y = 95 + ((suggest_chord_count % 6) * 48);
+    // Coordinate prep (Two columns, 7 rows)
+    col_x = suggest_chord_count < 7 ? 20 : 205;
+    col_y = 95 + ((suggest_chord_count % 7) * 48);
 
     // Draw the suggestion background box
     s_mood == 0 ? (gfx_r=0.1; gfx_g=0.3; gfx_b=0.2;) : // Greenish Safe
@@ -239,7 +445,20 @@ show_suggestions ? (
     gfx_x = col_x + 5; gfx_y = col_y + 20;
     gfx_a=1;
     
-    chord_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=1; gfx_g=1; gfx_b=1;);
+    hov_sug_name = mouse_x >= gfx_x - 2 && mouse_x <= gfx_x + 80 && mouse_y >= gfx_y - 2 && mouse_y <= gfx_y + 20;
+    hov_sug_name ? (
+      gfx_x_saved = gfx_x; gfx_y_saved = gfx_y;
+      gfx_a = 0.2; gfx_rect(gfx_x - 2, gfx_y - 2, 84, 22); gfx_a = 1;
+      gfx_r = 1; gfx_g = 1; gfx_b = 1;
+      gfx_x = gfx_x_saved; gfx_y = gfx_y_saved;
+      mouse_click ? (
+        usr_sel_notes_mask = s_real_m;
+        mouse_click = 0;
+      );
+    ) : (
+      chord_in_scl ? (gfx_r=1; gfx_g=0.8; gfx_b=0.2;) : (gfx_r=1; gfx_g=1; gfx_b=1;);
+    );
+
     s_r >= 0 ? (
       s_r==0?gfx_drawstr("C"):s_r==1?gfx_drawstr("Db"):s_r==2?gfx_drawstr("D"):
       s_r==3?gfx_drawstr("Eb"):s_r==4?gfx_drawstr("E"):s_r==5?gfx_drawstr("F"):
@@ -303,6 +522,9 @@ show_suggestions ? (
     sv_m = cbox[idx * 8 + 6];
     sv_real_m = cbox[idx * 8 + 7];
 
+    blk_x = cbox[idx * 8 + 0];
+    blk_y = cbox[idx * 8 + 1];
+
     // Play click check - Exclusively audition
     mouse_cap & 1 && mouse_x >= bx && mouse_x <= bx + bw && mouse_y >= by && mouse_y <= by + bh ? (
       sug_play_frame = 3; // Keep override alive
@@ -361,7 +583,7 @@ show_suggestions ? (
   );
 );
 show_chord_browser ? (
-  gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.95;
+  gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.85;
   gfx_rect(0, 0, gfx_w, gfx_h - kb_h);
 
   gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;

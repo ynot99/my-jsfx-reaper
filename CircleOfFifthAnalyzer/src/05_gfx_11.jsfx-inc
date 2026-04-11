@@ -1,6 +1,6 @@
 // === OVERLAY: CHORD PALETTE ===
 show_palette ? (
-  gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.95;
+  gfx_r=0.08; gfx_g=0.10; gfx_b=0.12; gfx_a=0.85;
   gfx_rect(0, 0, gfx_w, gfx_h - kb_h);
 
   gfx_r=1; gfx_g=1; gfx_b=1; gfx_a=1;

@@ -1,5 +1,21 @@
 // === ПІАНІНО ===
 kb_y = gfx_h - kb_h;
+
+// MIDI Panic Button
+gfx_setfont(1, "Arial", 16, 'b');
+gfx_measurestr("[!]", pw, ph);
+px = gfx_w - pw - 10;
+py = kb_y - ph - 5;
+hov_panic = mouse_x >= px && mouse_x <= px+pw && mouse_y >= py && mouse_y <= py+ph;
+hov_panic ? (gfx_r=1; gfx_g=0.2; gfx_b=0.2; gfx_a=1;) : (gfx_r=0.5; gfx_g=0.5; gfx_b=0.5; gfx_a=1;);
+gfx_x = px; gfx_y = py;
+gfx_drawstr("[!]");
+mouse_click && hov_panic ? (
+    panic_i = 0; 
+    loop(128, notes_held[panic_i] = 0; actual_notes_held[panic_i] = 0; panic_i+=1;);
+    mouse_click = 0;
+);
+
 w_keys = 14;      // Малюємо рівно 2 октави (14 білих клавіш)
 w_w = gfx_w / w_keys;
 
